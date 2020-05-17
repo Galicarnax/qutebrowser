@@ -40,6 +40,7 @@ from qutebrowser.keyinput import modeman
 from qutebrowser.browser import commands, downloadview, hints, downloads
 from qutebrowser.misc import crashsignal, keyhintwidget, sessions
 
+from qutebrowser.plugins import xkbswitch
 
 win_id_gen = itertools.count(0)
 
@@ -268,6 +269,8 @@ class MainWindow(QWidget):
         self._messageview = messageview.MessageView(parent=self)
         self._add_overlay(self._messageview, self._messageview.update_geometry)
 
+        self._xkb_switch = xkbswitch.XkbSwitchPlugin(win_id=self.win_id, parent=self)
+
         self._init_geometry(geometry)
         self._connect_signals()
 
@@ -494,6 +497,10 @@ class MainWindow(QWidget):
         mode_manager.left.connect(self.status.cmd.on_mode_left)
         mode_manager.left.connect(
             message.global_bridge.mode_left)  # type: ignore[arg-type]
+
+        # xkbswitch
+        mode_manager.entered.connect(self._xkb_switch.on_mode_entered)
+        mode_manager.left.connect(self._xkb_switch.on_mode_left)
 
         # commands
         normal_parser = mode_manager.parsers[usertypes.KeyMode.normal]
