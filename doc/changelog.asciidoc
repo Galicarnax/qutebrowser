@@ -38,6 +38,9 @@ Added
 - New `:config-diff` command which opens the `qute://configdiff` page.
 - New `--debug-flag log-cookies` to log cokies to the debug log for
   debugging.
+- New `colors.contextmenu.disabled.{fg,bg}` settings to customize colors for
+  disabled items in the context menu.
+- New line selection mode (`:toggle-selection --line`), bound to `Shift-V` in caret mode.
 
 Changed
 ~~~~~~~
@@ -47,6 +50,8 @@ Changed
   the exact dependencies listed in
   `misc/requirements/requirements-tests.txt{,-raw}` is supported.
 - The `:tab-focus` command now has completion for tabs in the current window.
+- The `bindings.key_mappings` setting now maps `<Ctrl+I>` to the tab key by default.
+- `:tab-give --private` now detaches a tab into a new private window.
 
 Fixed
 ~~~~~
@@ -57,6 +62,10 @@ Fixed
   the main thread), qutebrowser did crash or freeze when trying to show its
   exception handler. This is now fixed.
 - `:inspector` now works correctly when cookies are disabled globally.
+- Added workaround for a (Gentoo?) PyQt/packaging issue related to the
+  `QWebEngineFindTextResult` handling added in v1.11.0.
+- When entering caret selection mode (`v, v`) very early before a page is
+  loaded, an error is now shown instead of a crash happening.
 
 v1.11.1 (2020-05-07)
 --------------------

@@ -2204,6 +2204,26 @@ colors.contextmenu.selected.fg:
 
     If set to null, the Qt default is used.
 
+colors.contextmenu.disabled.bg:
+  type:
+    name: QssColor
+    none_ok: true
+  default: null
+  desc: >-
+    Background color of disabled items in the context menu.
+
+    If set to null, the Qt default is used.
+
+colors.contextmenu.disabled.fg:
+  type:
+    name: QssColor
+    none_ok: true
+  default: null
+  desc: >-
+    Foreground color of disabled items in the context menu.
+
+    If set to null, the Qt default is used.
+
 colors.downloads.bar.bg:
   default: black
   type: QssColor
@@ -2779,6 +2799,7 @@ bindings.key_mappings:
     <Ctrl-6>: <Ctrl-^>
     <Ctrl-M>: <Return>
     <Ctrl-J>: <Return>
+    <Ctrl-I>: <Tab>
     <Shift-Return>: <Return>
     <Enter>: <Return>
     <Shift-Enter>: <Return>
@@ -3057,6 +3078,7 @@ bindings.default:
       <Escape>: leave-mode
     caret:
       v: toggle-selection
+      V: toggle-selection --line
       <Space>: toggle-selection
       <Ctrl-Space>: drop-selection
       c: enter-mode normal

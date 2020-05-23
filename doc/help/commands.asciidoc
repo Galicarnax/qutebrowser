@@ -286,8 +286,7 @@ Set all settings back to their default.
 
 [[config-cycle]]
 === config-cycle
-Syntax: +:config-cycle [*--pattern* 'pattern'] [*--temp*] [*--print*]
-             'option' ['values' ['values' ...]]+
+Syntax: +:config-cycle [*--pattern* 'pattern'] [*--temp*] [*--print*] 'option' ['values' ['values' ...]]+
 
 Cycle an option between multiple values.
 
@@ -608,8 +607,7 @@ Show help about a command or setting.
 
 [[hint]]
 === hint
-Syntax: +:hint [*--mode* 'mode'] [*--add-history*] [*--rapid*] [*--first*]
-     ['group'] ['target'] ['args' ['args' ...]]+
+Syntax: +:hint [*--mode* 'mode'] [*--add-history*] [*--rapid*] [*--first*] ['group'] ['target'] ['args' ['args' ...]]+
 
 Start hinting.
 
@@ -866,8 +864,7 @@ Do nothing.
 
 [[open]]
 === open
-Syntax: +:open [*--related*] [*--bg*] [*--tab*] [*--window*] [*--secure*] [*--private*]
-     ['url']+
+Syntax: +:open [*--related*] [*--bg*] [*--tab*] [*--window*] [*--secure*] [*--private*] ['url']+
 
 Open a URL in the current/[count]th tab.
 
@@ -1197,9 +1194,7 @@ Load a session.
 
 [[session-save]]
 === session-save
-Syntax: +:session-save [*--current*] [*--quiet*] [*--force*] [*--only-active-window*]
-             [*--with-private*]
-             ['name']+
+Syntax: +:session-save [*--current*] [*--quiet*] [*--force*] [*--only-active-window*] [*--with-private*] ['name']+
 
 Save a session.
 
@@ -1263,9 +1258,7 @@ Set a mark at the current scroll position in the current tab.
 
 [[spawn]]
 === spawn
-Syntax: +:spawn [*--userscript*] [*--verbose*] [*--output*] [*--output-messages*]
-      [*--detach*]
-      'cmdline'+
+Syntax: +:spawn [*--userscript*] [*--verbose*] [*--output*] [*--output-messages*] [*--detach*] 'cmdline'+
 
 Spawn an external command.
 
@@ -1348,7 +1341,7 @@ The tab index to focus, starting with 1.
 
 [[tab-give]]
 === tab-give
-Syntax: +:tab-give [*--keep*] ['win-id']+
+Syntax: +:tab-give [*--keep*] [*--private*] ['win-id']+
 
 Give the current tab to a new or existing window if win_id given.
 
@@ -1359,6 +1352,7 @@ If no win_id is given, the tab will get detached into a new window.
 
 ==== optional arguments
 * +*-k*+, +*--keep*+: If given, keep the old tab around.
+* +*-p*+, +*--private*+: If the tab should be detached into a private instance.
 
 ==== count
 Overrides win_id (index starts at 1 for win_id=0).
@@ -1903,7 +1897,12 @@ This acts like readline's yank.
 
 [[toggle-selection]]
 === toggle-selection
+Syntax: +:toggle-selection [*--line*]+
+
 Toggle caret selection mode.
+
+==== optional arguments
+* +*-l*+, +*--line*+: Enables line-selection.
 
 
 == Debugging commands
