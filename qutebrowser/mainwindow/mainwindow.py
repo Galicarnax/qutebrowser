@@ -196,6 +196,7 @@ class MainWindow(QWidget):
             parent: The parent the window should get.
         """
         super().__init__(parent)
+        self.setAttribute(Qt.WA_TranslucentBackground)
         # Late import to avoid a circular dependency
         # - browsertab -> hints -> webelem -> mainwindow -> bar -> browsertab
         from qutebrowser.mainwindow import tabbedbrowser
