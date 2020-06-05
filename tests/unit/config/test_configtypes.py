@@ -216,13 +216,21 @@ class TestAll:
                 pass
             elif (member is configtypes.List or
                   member is configtypes.ListOrValue):
-                yield functools.partial(member, valtype=configtypes.Int())
-                yield functools.partial(member, valtype=configtypes.Url())
+                yield pytest.param(
+                    functools.partial(member, valtype=configtypes.Int()),
+                    id=member.__name__ + '-Int')
+                yield pytest.param(
+                    functools.partial(member, valtype=configtypes.Url()),
+                    id=member.__name__ + '-Url')
             elif member is configtypes.Dict:
-                yield functools.partial(member, keytype=configtypes.String(),
-                                        valtype=configtypes.String())
+                yield pytest.param(
+                    functools.partial(member, keytype=configtypes.String(),
+                                      valtype=configtypes.String()),
+                    id=member.__name__)
             elif member is configtypes.FormatString:
-                yield functools.partial(member, fields=['a', 'b'])
+                yield pytest.param(
+                    functools.partial(member, fields=['a', 'b']),
+                    id=member.__name__)
             elif issubclass(member, configtypes.BaseType):
                 yield member
 
@@ -263,8 +271,10 @@ class TestAll:
         ]:
             return
         elif (isinstance(typ, functools.partial) and
-              isinstance(typ.func, configtypes.ListOrValue)):
-            # "- /" -> "/"
+              isinstance(typ.func, (configtypes.ListOrValue,
+                                    configtypes.List))):
+            # ListOrValue: "- /" -> "/"
+            # List: "- /" -> ["/"]
             return
         elif (isinstance(typ, configtypes.ListOrValue) and
               isinstance(typ.valtype, configtypes.Int)):
@@ -1036,6 +1046,10 @@ class TestInt:
         typ = klass()
         converted = typ.from_str(text)
         assert typ.to_str(converted) == text
+
+    def test_bounds_handling_unset(self, klass):
+        typ = klass(minval=1, maxval=2)
+        assert typ.to_py(usertypes.UNSET) is usertypes.UNSET
 
 
 class TestFloat:
