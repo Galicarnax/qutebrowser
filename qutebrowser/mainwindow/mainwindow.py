@@ -25,6 +25,15 @@ import itertools
 import functools
 import typing
 
+# Galicarnax: Wayland does not support QWindow::requestActivate()
+# This means that when opening URLs from external app/script,
+# the browser window will not be brought to focus if it resides in a workspace
+# other than the current one. A dirty hack is used to circumvent that, by sending
+# an IPC command to Sway, asking to focus qutebrowser window
+# TODO: The command should ask to focus a window with specific con_id,
+# in case if there are multiple QB windows open
+from i3ipc import Connection as WMConnection
+
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, QRect, QPoint, QTimer, Qt,
                           QCoreApplication, QEventLoop)
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QSizePolicy
@@ -106,7 +115,8 @@ def raise_window(window, alert=True):
     QCoreApplication.processEvents(  # type: ignore[call-overload]
         QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers)
     window.activateWindow()
-
+    if window.wm_variant == 'sway':
+        window.wm_connection.command('[app_id="org.qutebrowser.qutebrowser"] focus')
     if alert:
         QApplication.instance().alert(window)
 
@@ -294,6 +304,12 @@ class MainWindow(QWidget):
 
         self.state_before_fullscreen = self.windowState()
         stylesheet.set_register(self)
+
+        self.wm_connection = WMConnection()
+        response = self.wm_connection.get_version()
+        self.wm_variant = 'i3'
+        if 'variant' in response.ipc_data and response.ipc_data['variant'] == 'sway':
+            self.wm_variant = 'sway'
 
     def _init_geometry(self, geometry):
         """Initialize the window geometry or load it from disk."""
