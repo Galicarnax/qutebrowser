@@ -403,7 +403,7 @@ class TestGitStrSubprocess:
     def test_real_git(self, git_repo):
         """Test with a real git repository."""
         ret = version._git_str_subprocess(str(git_repo))
-        assert ret == '6e4b65a (1970-01-01 01:00:00 +0100)'
+        assert ret == '6e4b65a on master (1970-01-01 01:00:00 +0100)'
 
     def test_missing_dir(self, tmpdir):
         """Test with a directory which doesn't exist."""
@@ -1019,7 +1019,7 @@ def test_version_info(params, stubs, monkeypatch, config_stub):
     else:
         monkeypatch.delattr(sys, 'frozen', raising=False)
 
-    template = textwrap.dedent("""
+    template = version._LOGO.lstrip('\n') + textwrap.dedent("""
         qutebrowser vVERSION{git_commit}
         Backend: {backend}
         Qt: {qt}
@@ -1099,12 +1099,6 @@ class TestOpenGLInfo:
         assert info.version_str == version_str
         assert vendor in str(info)
         assert version_str in str(info)
-
-        if info.version is not None:
-            reconstructed = ' '.join(['.'.join(str(part)
-                                               for part in info.version),
-                                      info.vendor_specific])
-            assert reconstructed == info.version_str
 
     @pytest.mark.parametrize('version_str, expected', [
         ("2.1 INTEL-10.36.26", (2, 1)),

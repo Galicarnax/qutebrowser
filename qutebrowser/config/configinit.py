@@ -30,7 +30,7 @@ from qutebrowser.api import config as configapi
 from qutebrowser.config import (config, configdata, configfiles, configtypes,
                                 configexc, configcommands, stylesheet)
 from qutebrowser.utils import (objreg, usertypes, log, standarddir, message,
-                               qtutils)
+                               qtutils, utils)
 from qutebrowser.config import configcache
 from qutebrowser.misc import msgbox, objects, savemanager
 
@@ -285,10 +285,16 @@ def _darkmode_settings() -> typing.Iterator[typing.Tuple[str, str]]:
 
 def _qtwebengine_args(namespace: argparse.Namespace) -> typing.Iterator[str]:
     """Get the QtWebEngine arguments to use based on the config."""
-    if not qtutils.version_check('5.11', compiled=False):
+    is_qt_514 = (qtutils.version_check('5.14', compiled=False) and
+                 not qtutils.version_check('5.15', compiled=False))
+
+    if not qtutils.version_check('5.11', compiled=False) or is_qt_514:
         # WORKAROUND equivalent to
         # https://codereview.qt-project.org/#/c/217932/
         # Needed for Qt < 5.9.5 and < 5.10.1
+        #
+        # For Qt 5,14, WORKAROUND for
+        # https://bugreports.qt.io/browse/QTBUG-82105
         yield '--disable-shared-workers'
 
     # WORKAROUND equivalent to
@@ -358,6 +364,24 @@ def _qtwebengine_args(namespace: argparse.Namespace) -> typing.Iterator[str]:
         settings['content.autoplay'] = {
             True: None,
             False: '--autoplay-policy=user-gesture-required',
+        }
+
+    if qtutils.version_check('5.11', compiled=False) and not utils.is_mac:
+        # There are two additional flags in Chromium:
+        #
+        # - OverlayScrollbarFlashAfterAnyScrollUpdate
+        # - OverlayScrollbarFlashWhenMouseEnter
+        #
+        # We don't expose/activate those, but the changes they introduce are
+        # quite subtle: The former seems to show the scrollbar handle even if
+        # there was a 0px scroll (though no idea how that can happen...). The
+        # latter flashes *all* scrollbars when a scrollable area was entered,
+        # which doesn't seem to make much sense.
+        settings['scrolling.bar'] = {
+            'always': None,
+            'never': None,
+            'when-searching': None,
+            'overlay': '--enable-features=OverlayScrollbar',
         }
 
     if qtutils.version_check('5.14'):
