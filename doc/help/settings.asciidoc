@@ -252,8 +252,9 @@
 |<<input.insert_mode.leave_on_load,input.insert_mode.leave_on_load>>|Leave insert mode when starting a new page load.
 |<<input.insert_mode.plugins,input.insert_mode.plugins>>|Switch to insert mode when clicking flash and other plugins.
 |<<input.links_included_in_focus_chain,input.links_included_in_focus_chain>>|Include hyperlinks in the keyboard focus chain when tabbing.
+|<<input.mouse.back_forward_buttons,input.mouse.back_forward_buttons>>|Enable back and forward buttons on the mouse.
+|<<input.mouse.rocker_gestures,input.mouse.rocker_gestures>>|Enable Opera-like mouse rocker gestures.
 |<<input.partial_timeout,input.partial_timeout>>|Timeout (in milliseconds) for partially typed key bindings.
-|<<input.rocker_gestures,input.rocker_gestures>>|Enable Opera-like mouse rocker gestures.
 |<<input.spatial_navigation,input.spatial_navigation>>|Enable spatial navigation.
 |<<keyhint.blacklist,keyhint.blacklist>>|Keychains that shouldn't be shown in the keyhint dialog.
 |<<keyhint.delay,keyhint.delay>>|Time (in milliseconds) from pressing a key to seeing the keyhint dialog.
@@ -272,7 +273,7 @@
 |<<qt.highdpi,qt.highdpi>>|Turn on Qt HighDPI scaling.
 |<<qt.low_end_device_mode,qt.low_end_device_mode>>|When to use Chromium's low-end device mode.
 |<<qt.process_model,qt.process_model>>|Which Chromium process model to use.
-|<<scrolling.bar,scrolling.bar>>|When to show the scrollbar.
+|<<scrolling.bar,scrolling.bar>>|When/how to show the scrollbar.
 |<<scrolling.smooth,scrolling.smooth>>|Enable smooth scrolling for web pages.
 |<<search.ignore_case,search.ignore_case>>|When to find text on a page case-insensitively.
 |<<search.incremental,search.incremental>>|Find text on a page incrementally, renewing the search for each typed character.
@@ -356,6 +357,8 @@ Default: +pass:[15000]+
 [[auto_save.session]]
 === auto_save.session
 Always restore open sites when qutebrowser is reopened.
+Without this option set, `:wq` (`:quit --save`) needs to be used to save open tabs (and restore them), while quitting qutebrowser in any other way will not save/restore the session.
+By default, this will save to the session which was last loaded. This behavior can be customized via the `session.default_name` setting.
 
 Type: <<types,Bool>>
 
@@ -680,12 +683,17 @@ Default:
 * +pass:[u]+: +pass:[undo]+
 * +pass:[v]+: +pass:[enter-mode caret]+
 * +pass:[wB]+: +pass:[set-cmd-text -s :bookmark-load -w]+
+* +pass:[wIh]+: +pass:[devtools left]+
+* +pass:[wIj]+: +pass:[devtools bottom]+
+* +pass:[wIk]+: +pass:[devtools top]+
+* +pass:[wIl]+: +pass:[devtools right]+
+* +pass:[wIw]+: +pass:[devtools window]+
 * +pass:[wO]+: +pass:[set-cmd-text :open -w {url:pretty}]+
 * +pass:[wP]+: +pass:[open -w -- {primary}]+
 * +pass:[wb]+: +pass:[set-cmd-text -s :quickmark-load -w]+
 * +pass:[wf]+: +pass:[hint all window]+
 * +pass:[wh]+: +pass:[back -w]+
-* +pass:[wi]+: +pass:[inspector]+
+* +pass:[wi]+: +pass:[devtools]+
 * +pass:[wl]+: +pass:[forward -w]+
 * +pass:[wo]+: +pass:[set-cmd-text -s :open -w]+
 * +pass:[wp]+: +pass:[open -w -- {clipboard}]+
@@ -1997,7 +2005,7 @@ This setting supports URL patterns.
 
 Type: <<types,Bool>>
 
-Default: +pass:[false]+
+Default: +pass:[true]+
 
 On QtWebEngine, this setting requires Qt 5.12 or newer.
 
@@ -2114,7 +2122,9 @@ The following placeholders are defined:
 The default value is equal to the unchanged user agent of
 QtWebKit/QtWebEngine.
 
-Note that the value read from JavaScript is always the global value.
+Note that the value read from JavaScript is always the global value. With
+QtWebEngine between 5.12 and 5.14 (inclusive), changing the value exposed
+to JavaScript requires a restart.
 
 
 This setting supports URL patterns.
@@ -2440,6 +2450,7 @@ Default: +pass:[false]+
 === content.proxy
 Proxy to use.
 In addition to the listed values, you can use a `socks://...` or `http://...` URL.
+Note that with QtWebEngine, it will take a couple of seconds until the change is applied, if this value is changed at runtime.
 
 Type: <<types,Proxy>>
 
@@ -2567,7 +2578,7 @@ On QtWebKit, this setting is unavailable.
 [[content.xss_auditing]]
 === content.xss_auditing
 Monitor load requests for cross-site scripting attempts.
-Suspicious scripts will be blocked and reported in the inspector's JavaScript console.
+Suspicious scripts will be blocked and reported in the devtools JavaScript console.
 Note that bypasses for the XSS auditor are widely known and it can be abused for cross-site info leaks in some scenarios, see: https://www.chromium.org/developers/design-documents/xss-auditor
 
 This setting supports URL patterns.
@@ -3212,6 +3223,23 @@ Type: <<types,Bool>>
 
 Default: +pass:[true]+
 
+[[input.mouse.back_forward_buttons]]
+=== input.mouse.back_forward_buttons
+Enable back and forward buttons on the mouse.
+
+Type: <<types,Bool>>
+
+Default: +pass:[true]+
+
+[[input.mouse.rocker_gestures]]
+=== input.mouse.rocker_gestures
+Enable Opera-like mouse rocker gestures.
+This disables the context menu.
+
+Type: <<types,Bool>>
+
+Default: +pass:[false]+
+
 [[input.partial_timeout]]
 === input.partial_timeout
 Timeout (in milliseconds) for partially typed key bindings.
@@ -3220,15 +3248,6 @@ If the current input forms only partial matches, the keystring will be cleared a
 Type: <<types,Int>>
 
 Default: +pass:[5000]+
-
-[[input.rocker_gestures]]
-=== input.rocker_gestures
-Enable Opera-like mouse rocker gestures.
-This disables the context menu.
-
-Type: <<types,Bool>>
-
-Default: +pass:[false]+
 
 [[input.spatial_navigation]]
 === input.spatial_navigation
@@ -3461,7 +3480,7 @@ This setting is only available with the QtWebEngine backend.
 
 [[scrolling.bar]]
 === scrolling.bar
-When to show the scrollbar.
+When/how to show the scrollbar.
 
 Type: <<types,String>>
 
@@ -3470,8 +3489,9 @@ Valid values:
  * +always+: Always show the scrollbar.
  * +never+: Never show the scrollbar.
  * +when-searching+: Show the scrollbar when searching for text in the webpage. With the QtWebKit backend, this is equal to `never`.
+ * +overlay+: Show an overlay scrollbar. With Qt < 5.11 or on macOS, this is unavailable and equal to `when-searching`; with the QtWebKit backend, this is equal to `never`. Enabling/disabling overlay scrollbars requires a restart.
 
-Default: +pass:[when-searching]+
+Default: +pass:[overlay]+
 
 [[scrolling.smooth]]
 === scrolling.smooth
@@ -3959,6 +3979,7 @@ The following placeholders are defined:
 * `{current_title}`: Title of the current web page.
 * `{title_sep}`: The string ` - ` if a title is set, empty otherwise.
 * `{index}`: Index of this tab.
+* `{aligned_index}`: Index of this tab padded with spaces to have the same width.
 * `{id}`: Internal tab ID of this tab.
 * `{scroll_pos}`: Page scroll position.
 * `{host}`: Host of the current web page.
@@ -4025,6 +4046,7 @@ Valid values:
  * +naive+: Use simple/naive check.
  * +dns+: Use DNS requests (might be slow!).
  * +never+: Never search automatically.
+ * +schemeless+: Always search automatically unless URL explicitly contains a scheme.
 
 Default: +pass:[naive]+
 

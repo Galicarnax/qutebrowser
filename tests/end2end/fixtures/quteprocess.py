@@ -33,7 +33,7 @@ import json
 
 import yaml
 import pytest
-from PyQt5.QtCore import pyqtSignal, QUrl, qVersion
+from PyQt5.QtCore import pyqtSignal, QUrl
 
 from qutebrowser.misc import ipc
 from qutebrowser.utils import log, utils, javascript, qtutils
@@ -544,9 +544,10 @@ class QuteProc(testprocess.Process):
                 '--json-logging', '--loglevel', 'vdebug',
                 '--backend', backend, '--debug-flag', 'no-sql-history',
                 '--debug-flag', 'werror']
-        if qVersion() == '5.7.1':
-            # https://github.com/qutebrowser/qutebrowser/issues/3163
-            args += ['--qt-flag', 'disable-seccomp-filter-sandbox']
+
+        if self.request.config.webengine:
+            args += testutils.seccomp_args(qt_flag=True)
+
         args.append('about:blank')
         return args
 
@@ -711,7 +712,7 @@ class QuteProc(testprocess.Process):
             is_dl_inconsistency = str(self.captured_log[-1]).endswith(
                 "_dl_allocate_tls_init: Assertion "
                 "`listp->slotinfo[cnt].gen <= GL(dl_tls_generation)' failed!")
-            if 'TRAVIS' in os.environ and is_dl_inconsistency:
+            if 'CI' in os.environ and is_dl_inconsistency:
                 # WORKAROUND for https://sourceware.org/bugzilla/show_bug.cgi?id=19329
                 self.captured_log = []
                 self._log("NOTE: Restarted after libc DL inconsistency!")

@@ -275,7 +275,15 @@ auto_save.interval:
 auto_save.session:
   type: Bool
   default: false
-  desc: Always restore open sites when qutebrowser is reopened.
+  desc: >-
+    Always restore open sites when qutebrowser is reopened.
+
+    Without this option set, `:wq` (`:quit --save`) needs to be used to save
+    open tabs (and restore them), while quitting qutebrowser in any other way
+    will not save/restore the session.
+
+    By default, this will save to the session which was last loaded. This
+    behavior can be customized via the `session.default_name` setting.
 
 ## content
 
@@ -444,7 +452,7 @@ content.developer_extras:
   deleted: true
 
 content.dns_prefetch:
-  default: false
+  default: true
   type: Bool
   backend:
     QtWebKit: true
@@ -562,11 +570,11 @@ content.headers.user_agent:
     completions:
       # See https://techblog.willshouse.com/2012/01/03/most-common-user-agents/
       - - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
-          like Gecko) Chrome/81.0.4044.129 Safari/537.36"
-        - Chrome 80 Win10
+          like Gecko) Chrome/83.0.4103.61 Safari/537.36"
+        - Chrome 83 Win10
       - - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like
-          Gecko) Chrome/81.0.4044.138 Safari/537.36"
-        - Chrome 80 Linux
+          Gecko) Chrome/83.0.4103.61 Safari/537.36"
+        - Chrome 83 Linux
   supports_pattern: true
   desc: |
     User agent to send.
@@ -585,7 +593,9 @@ content.headers.user_agent:
     The default value is equal to the unchanged user agent of
     QtWebKit/QtWebEngine.
 
-    Note that the value read from JavaScript is always the global value.
+    Note that the value read from JavaScript is always the global value. With
+    QtWebEngine between 5.12 and 5.14 (inclusive), changing the value exposed
+    to JavaScript requires a restart.
 
 content.host_blocking.enabled:
   default: true
@@ -813,6 +823,9 @@ content.proxy:
     In addition to the listed values, you can use a `socks://...` or
     `http://...` URL.
 
+    Note that with QtWebEngine, it will take a couple of seconds until the
+    change is applied, if this value is changed at runtime.
+
 content.proxy_dns_requests:
   default: true
   type: Bool
@@ -882,7 +895,7 @@ content.xss_auditing:
   desc: >-
     Monitor load requests for cross-site scripting attempts.
 
-    Suspicious scripts will be blocked and reported in the inspector's
+    Suspicious scripts will be blocked and reported in the devtools
     JavaScript console.
 
     Note that bypasses for the XSS auditor are widely known and it can be
@@ -1379,6 +1392,19 @@ input.links_included_in_focus_chain:
   supports_pattern: true
   desc: Include hyperlinks in the keyboard focus chain when tabbing.
 
+input.mouse.back_forward_buttons:
+  default: true
+  type: Bool
+  desc: Enable back and forward buttons on the mouse.
+
+input.mouse.rocker_gestures:
+  default: false
+  type: Bool
+  desc: >-
+    Enable Opera-like mouse rocker gestures.
+
+    This disables the context menu.
+
 input.partial_timeout:
   default: 5000
   type:
@@ -1392,12 +1418,7 @@ input.partial_timeout:
     cleared after this time.
 
 input.rocker_gestures:
-  default: false
-  type: Bool
-  desc: >-
-    Enable Opera-like mouse rocker gestures.
-
-    This disables the context menu.
+  renamed: input.mouse.rocker_gestures
 
 input.spatial_navigation:
   default: false
@@ -1483,8 +1504,12 @@ scrolling.bar:
       - never: Never show the scrollbar.
       - when-searching: Show the scrollbar when searching for text in the
             webpage. With the QtWebKit backend, this is equal to `never`.
-  default: when-searching
-  desc: When to show the scrollbar.
+      - overlay: Show an overlay scrollbar. With Qt < 5.11 or on macOS, this is
+            unavailable and equal to `when-searching`; with the QtWebKit
+            backend, this is equal to `never`. Enabling/disabling overlay
+            scrollbars requires a restart.
+  default: overlay
+  desc: When/how to show the scrollbar.
 
 scrolling.smooth:
   type: Bool
@@ -1760,6 +1785,7 @@ tabs.title.format:
       - current_title
       - title_sep
       - index
+      - aligned_index
       - id
       - scroll_pos
       - host
@@ -1777,6 +1803,7 @@ tabs.title.format:
     * `{current_title}`: Title of the current web page.
     * `{title_sep}`: The string ` - ` if a title is set, empty otherwise.
     * `{index}`: Index of this tab.
+    * `{aligned_index}`: Index of this tab padded with spaces to have the same width.
     * `{id}`: Internal tab ID of this tab.
     * `{scroll_pos}`: Page scroll position.
     * `{host}`: Host of the current web page.
@@ -1796,6 +1823,7 @@ tabs.title.format_pinned:
       - current_title
       - title_sep
       - index
+      - aligned_index
       - id
       - scroll_pos
       - host
@@ -1924,6 +1952,7 @@ url.auto_search:
       - naive: Use simple/naive check.
       - dns: Use DNS requests (might be slow!).
       - never: Never search automatically.
+      - schemeless: Always search automatically unless URL explicitly contains a scheme.
   default: naive
   desc: What search to start when something else than a URL is entered.
 
@@ -3116,7 +3145,12 @@ bindings.default:
       gU: navigate up -t
       <Ctrl-A>: navigate increment
       <Ctrl-X>: navigate decrement
-      wi: inspector
+      wi: devtools
+      wIh: devtools left
+      wIj: devtools bottom
+      wIk: devtools top
+      wIl: devtools right
+      wIw: devtools window
       gd: download
       ad: download-cancel
       cd: download-clear

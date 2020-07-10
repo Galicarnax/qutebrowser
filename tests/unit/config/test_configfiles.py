@@ -83,6 +83,8 @@ def autoconfig(config_tmpdir):
      'version = 1.2.3\n'
      '\n'
      '[geometry]\n'
+     '\n'
+     '[inspector]\n'
      '\n'),
     ('[general]\n'
      'fooled = true',
@@ -92,6 +94,8 @@ def autoconfig(config_tmpdir):
      'version = 1.2.3\n'
      '\n'
      '[geometry]\n'
+     '\n'
+     '[inspector]\n'
      '\n'),
     ('[general]\n'
      'foobar = 42',
@@ -102,6 +106,8 @@ def autoconfig(config_tmpdir):
      'version = 1.2.3\n'
      '\n'
      '[geometry]\n'
+     '\n'
+     '[inspector]\n'
      '\n'),
     (None,
      True,
@@ -111,6 +117,8 @@ def autoconfig(config_tmpdir):
      'newval = 23\n'
      '\n'
      '[geometry]\n'
+     '\n'
+     '[inspector]\n'
      '\n'),
 ])
 def test_state_config(fake_save_manager, data_tmpdir, monkeypatch,
@@ -322,6 +330,18 @@ class TestYaml:
         assert str(error.exception).splitlines()[0] == exception
         assert error.traceback is None
 
+    @pytest.mark.parametrize('value', [
+        42,  # value is not a dict
+        {'https://': True},  # Invalid pattern
+        {True: True},  # No string pattern
+    ])
+    def test_invalid_in_migrations(self, value, yaml, autoconfig):
+        """Make sure migrations work fine with an invalid structure."""
+        config = {key: value for key in configdata.DATA}
+        autoconfig.write(config)
+        with pytest.raises(configexc.ConfigFileErrors):
+            yaml.load()
+
     def test_legacy_migration(self, yaml, autoconfig, qtbot):
         autoconfig.write_toplevel({
             'config_version': 1,
@@ -501,7 +521,7 @@ class TestYamlMigrations:
         ('tabs.favicons.show', 'always', 'always'),
 
         ('scrolling.bar', True, 'always'),
-        ('scrolling.bar', False, 'when-searching'),
+        ('scrolling.bar', False, 'overlay'),
         ('scrolling.bar', 'always', 'always'),
 
         ('qt.force_software_rendering', True, 'software-opengl'),
@@ -596,6 +616,27 @@ class TestYamlMigrations:
         data = autoconfig.read()
         assert data['fonts.tabs.unselected']['global'] == val
         assert data['fonts.tabs.selected']['global'] == val
+
+    def test_empty_pattern(self, yaml, autoconfig):
+        valid_pattern = 'https://example.com/*'
+        invalid_pattern = '*://*./*'
+        setting = 'content.javascript.enabled'
+
+        autoconfig.write({
+            setting: {
+                'global': False,
+                invalid_pattern: True,
+                valid_pattern: True,
+            }
+        })
+
+        yaml.load()
+        yaml._save()
+
+        data = autoconfig.read()
+        assert not data[setting]['global']
+        assert invalid_pattern not in data[setting]
+        assert data[setting][valid_pattern]
 
 
 class ConfPy:

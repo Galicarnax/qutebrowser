@@ -28,7 +28,7 @@ import pathlib
 
 import pytest
 import hypothesis
-from PyQt5.QtCore import qVersion, PYQT_VERSION
+from PyQt5.QtCore import PYQT_VERSION
 
 pytest.register_assert_rewrite('helpers')
 
@@ -197,12 +197,10 @@ def pytest_ignore_collect(path):
 
 @pytest.fixture(scope='session')
 def qapp_args():
-    """Make QtWebEngine unit tests run on Qt 5.7.1.
-
-    See https://github.com/qutebrowser/qutebrowser/issues/3163
-    """
-    if qVersion() == '5.7.1':
-        return [sys.argv[0], '--disable-seccomp-filter-sandbox']
+    """Make QtWebEngine unit tests run on older Qt versions + newer kernels."""
+    seccomp_args = testutils.seccomp_args(qt_flag=False)
+    if seccomp_args:
+        return [sys.argv[0]] + seccomp_args
     return []
 
 
@@ -224,8 +222,8 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     webengine_arg = config.getoption('--qute-bdd-webengine')
-    webengine_env = os.environ.get('QUTE_BDD_WEBENGINE', '')
-    config.webengine = bool(webengine_arg or webengine_env)
+    webengine_env = os.environ.get('QUTE_BDD_WEBENGINE', 'false')
+    config.webengine = webengine_arg or webengine_env == 'true'
     # Fail early if QtWebEngine is not available
     if config.webengine:
         import PyQt5.QtWebEngineWidgets
@@ -294,8 +292,12 @@ def apply_fake_os(monkeypatch, request):
 
 @pytest.fixture(scope='session', autouse=True)
 def check_yaml_c_exts():
-    """Make sure PyYAML C extensions are available on Travis."""
-    if 'TRAVIS' in os.environ:
+    """Make sure PyYAML C extensions are available on CI.
+
+    Not available yet with a nightly Python, see:
+    https://github.com/yaml/pyyaml/issues/416
+    """
+    if 'CI' in os.environ and sys.version_info[:2] != (3, 10):
         from yaml import CLoader
 
 
