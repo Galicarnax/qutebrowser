@@ -171,7 +171,9 @@
 |<<content.local_content_can_access_file_urls,content.local_content_can_access_file_urls>>|Allow locally loaded documents to access other local URLs.
 |<<content.local_content_can_access_remote_urls,content.local_content_can_access_remote_urls>>|Allow locally loaded documents to access remote URLs.
 |<<content.local_storage,content.local_storage>>|Enable support for HTML 5 local storage and Web SQL.
-|<<content.media_capture,content.media_capture>>|Allow websites to record audio/video.
+|<<content.media.audio_capture,content.media.audio_capture>>|Allow websites to record audio.
+|<<content.media.audio_video_capture,content.media.audio_video_capture>>|Allow websites to record audio and video.
+|<<content.media.video_capture,content.media.video_capture>>|Allow websites to record video.
 |<<content.mouse_lock,content.mouse_lock>>|Allow websites to lock your mouse pointer.
 |<<content.mute,content.mute>>|Automatically mute tabs.
 |<<content.netrc_file,content.netrc_file>>|Netrc-file for HTTP authentication.
@@ -683,6 +685,7 @@ Default:
 * +pass:[u]+: +pass:[undo]+
 * +pass:[v]+: +pass:[enter-mode caret]+
 * +pass:[wB]+: +pass:[set-cmd-text -s :bookmark-load -w]+
+* +pass:[wIf]+: +pass:[devtools-focus]+
 * +pass:[wIh]+: +pass:[devtools left]+
 * +pass:[wIj]+: +pass:[devtools bottom]+
 * +pass:[wIk]+: +pass:[devtools top]+
@@ -1946,6 +1949,7 @@ This setting is only available with the QtWebEngine backend.
 Which cookies to accept.
 With QtWebEngine, this setting also controls other features with tracking capabilities similar to those of cookies; including IndexedDB, DOM storage, filesystem API, service workers, and AppCache.
 Note that with QtWebKit, only `all` and `never` are supported as per-domain values. Setting `no-3rdparty` or `no-unknown-3rdparty` per-domain on QtWebKit will have the same effect as `all`.
+If this setting is used with URL patterns, the pattern gets applied to the origin/first party URL of the page making the request, not the request URL.
 
 This setting supports URL patterns.
 
@@ -2309,9 +2313,45 @@ Type: <<types,Bool>>
 
 Default: +pass:[true]+
 
-[[content.media_capture]]
-=== content.media_capture
-Allow websites to record audio/video.
+[[content.media.audio_capture]]
+=== content.media.audio_capture
+Allow websites to record audio.
+
+This setting supports URL patterns.
+
+Type: <<types,BoolAsk>>
+
+Valid values:
+
+ * +true+
+ * +false+
+ * +ask+
+
+Default: +pass:[ask]+
+
+This setting is only available with the QtWebEngine backend.
+
+[[content.media.audio_video_capture]]
+=== content.media.audio_video_capture
+Allow websites to record audio and video.
+
+This setting supports URL patterns.
+
+Type: <<types,BoolAsk>>
+
+Valid values:
+
+ * +true+
+ * +false+
+ * +ask+
+
+Default: +pass:[ask]+
+
+This setting is only available with the QtWebEngine backend.
+
+[[content.media.video_capture]]
+=== content.media.video_capture
+Allow websites to record video.
 
 This setting supports URL patterns.
 
@@ -3086,6 +3126,7 @@ Default:
 * +pass:[img]+
 * +pass:[link]+
 * +pass:[summary]+
+* +pass:[[contenteditable]:not([contenteditable=&quot;false&quot;])]+
 * +pass:[[onclick]]+
 * +pass:[[onmousedown]]+
 * +pass:[[role=&quot;link&quot;]]+
@@ -3114,6 +3155,7 @@ Default:
 * +pass:[input[type=&quot;url&quot;]]+
 * +pass:[input[type=&quot;week&quot;]]+
 * +pass:[input:not([type])]+
+* +pass:[[contenteditable]:not([contenteditable=&quot;false&quot;])]+
 * +pass:[textarea]+
 - +pass:[links]+:
 
@@ -4259,10 +4301,10 @@ When setting from a string, pass a json-like list, e.g. `["one", "two"]`.
 |Proxy|A proxy URL, or `system`/`none`.
 |QssColor|A color value supporting gradients.
 
-A value can be in one of the following formats: * `#RGB`/`#RRGGBB`/`#RRRGGGBBB`/`#RRRRGGGGBBBB` * An SVG color name as specified in http://www.w3.org/TR/SVG/types.html#ColorKeywords[the W3C specification]. * transparent (no color) * `rgb(r, g, b)` / `rgba(r, g, b, a)` (values 0-255 or percentages) * `hsv(h, s, v)` / `hsva(h, s, v, a)` (values 0-255, hue 0-359) * A gradient as explained in http://doc.qt.io/qt-5/stylesheet-reference.html#list-of-property-types[the Qt documentation] under ``Gradient''
+A value can be in one of the following formats: * `#RGB`/`#RRGGBB`/`#AARRGGBB`/`#RRRGGGBBB`/`#RRRRGGGGBBBB` * An SVG color name as specified in http://www.w3.org/TR/SVG/types.html#ColorKeywords[the W3C specification]. * transparent (no color) * `rgb(r, g, b)` / `rgba(r, g, b, a)` (values 0-255 or percentages) * `hsv(h, s, v)` / `hsva(h, s, v, a)` (values 0-255, hue 0-359) * A gradient as explained in http://doc.qt.io/qt-5/stylesheet-reference.html#list-of-property-types[the Qt documentation] under ``Gradient''
 |QtColor|A color value.
 
-A value can be in one of the following formats: * `#RGB`/`#RRGGBB`/`#RRRGGGBBB`/`#RRRRGGGGBBBB` * An SVG color name as specified in http://www.w3.org/TR/SVG/types.html#ColorKeywords[the W3C specification]. * transparent (no color) * `rgb(r, g, b)` / `rgba(r, g, b, a)` (values 0-255 or percentages) * `hsv(h, s, v)` / `hsva(h, s, v, a)` (values 0-255, hue 0-359)
+A value can be in one of the following formats: * `#RGB`/`#RRGGBB`/`#AARRGGBB`/`#RRRGGGBBB`/`#RRRRGGGGBBBB` * An SVG color name as specified in http://www.w3.org/TR/SVG/types.html#ColorKeywords[the W3C specification]. * transparent (no color) * `rgb(r, g, b)` / `rgba(r, g, b, a)` (values 0-255 or percentages) * `hsv(h, s, v)` / `hsva(h, s, v, a)` (values 0-255, hue 0-359)
 |Regex|A regular expression.
 
 When setting from `config.py`, both a string or a `re.compile(...)` object are valid.

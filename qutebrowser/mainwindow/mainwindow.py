@@ -49,6 +49,7 @@ from qutebrowser.completion import completionwidget, completer
 from qutebrowser.keyinput import modeman
 from qutebrowser.browser import commands, downloadview, hints, downloads
 from qutebrowser.misc import crashsignal, keyhintwidget, sessions
+from qutebrowser.qt import sip
 
 from qutebrowser.plugins import xkbswitch
 
@@ -115,10 +116,14 @@ def raise_window(window, alert=True):
     # WORKAROUND for https://bugreports.qt.io/browse/QTBUG-69568
     QCoreApplication.processEvents(  # type: ignore[call-overload]
         QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers)
+
     window.activateWindow()
     if window.wm_variant == 'sway':
         window.wm_connection.command('[app_id="org.qutebrowser.qutebrowser"] focus')
-    if alert:
+
+    if not sip.isdeleted(window):
+        # Could be deleted by the events run above
+        window.activateWindow()
         QApplication.instance().alert(window)
 
 
@@ -715,4 +720,6 @@ class MainWindow(QWidget):
 
         sessions.session_manager.save_last_window_session()
         self._save_geometry()
+
         log.destroy.debug("Closing window {}".format(self.win_id))
+        self.tabbed_browser.shutdown()

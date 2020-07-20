@@ -172,6 +172,18 @@ class AbstractWebElement(collections.abc.MutableMapping):
         except KeyError:
             return False
 
+    def is_content_editable_prop(self) -> bool:
+        """Get the value of this element's isContentEditable property.
+
+        The is_content_editable() method above checks for the "contenteditable"
+        HTML attribute, which does not handle inheritance. However, the actual
+        attribute value is still needed for certain cases (like strict=True).
+
+        This instead gets the isContentEditable JS property, which handles
+        inheritance.
+        """
+        raise NotImplementedError
+
     def _is_editable_object(self) -> bool:
         """Check if an object-element is editable."""
         if 'type' not in self:
@@ -251,6 +263,9 @@ class AbstractWebElement(collections.abc.MutableMapping):
         elif tag in ['embed', 'applet']:
             # Flash/Java/...
             return config.val.input.insert_mode.plugins and not strict
+        elif (not strict and self.is_content_editable_prop() and
+              self.is_writable()):
+            return True
         elif tag == 'object':
             return self._is_editable_object() and not strict
         elif tag in ['div', 'pre', 'span']:

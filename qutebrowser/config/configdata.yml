@@ -381,6 +381,9 @@ content.cookies.accept:
     values. Setting `no-3rdparty` or `no-unknown-3rdparty` per-domain on
     QtWebKit will have the same effect as `all`.
 
+    If this setting is used with URL patterns, the pattern gets applied to the
+    origin/first party URL of the page making the request, not the request URL.
+
 content.cookies.store:
   default: true
   type: Bool
@@ -746,12 +749,26 @@ content.local_storage:
   supports_pattern: true
   desc: Enable support for HTML 5 local storage and Web SQL.
 
-content.media_capture:
+content.media.audio_capture:
   default: ask
   type: BoolAsk
   supports_pattern: true
   backend: QtWebEngine
-  desc: Allow websites to record audio/video.
+  desc: Allow websites to record audio.
+
+content.media.audio_video_capture:
+  default: ask
+  type: BoolAsk
+  supports_pattern: true
+  backend: QtWebEngine
+  desc: Allow websites to record audio and video.
+
+content.media.video_capture:
+  default: ask
+  type: BoolAsk
+  supports_pattern: true
+  backend: QtWebEngine
+  desc: Allow websites to record video.
 
 content.netrc_file:
   default: null
@@ -1278,6 +1295,7 @@ hints.selectors:
       - 'img'
       - 'link'
       - 'summary'
+      - '[contenteditable]:not([contenteditable="false"])'
       - '[onclick]'
       - '[onmousedown]'
       - '[role="link"]'
@@ -1316,6 +1334,7 @@ hints.selectors:
       - 'input[type="url"]'
       - 'input[type="week"]'
       - 'input:not([type])'
+      - '[contenteditable]:not([contenteditable="false"])'
       - 'textarea'
   type:
     name: Dict
@@ -3151,6 +3170,7 @@ bindings.default:
       wIk: devtools top
       wIl: devtools right
       wIw: devtools window
+      wIf: devtools-focus
       gd: download
       ad: download-cancel
       cd: download-clear

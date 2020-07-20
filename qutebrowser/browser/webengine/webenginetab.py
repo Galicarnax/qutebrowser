@@ -681,15 +681,29 @@ class WebEngineHistoryPrivate(browsertab.AbstractHistoryPrivate):
     def deserialize(self, data):
         qtutils.deserialize(data, self._history)
 
+    def _load_items_workaround(self, items):
+        """WORKAROUND for session loading not working on Qt 5.15.
+
+        Just load the current URL, see
+        https://github.com/qutebrowser/qutebrowser/issues/5359
+        """
+        if not items:
+            return
+
+        for i, item in enumerate(items):
+            if item.active:
+                cur_idx = i
+                break
+
+        url = items[cur_idx].url
+        if (url.scheme(), url.host()) == ('qute', 'back') and cur_idx >= 1:
+            url = items[cur_idx - 1].url
+
+        self._tab.load_url(url)
+
     def load_items(self, items):
         if qtutils.version_check('5.15', compiled=False):
-            # WORKAROUND for https://github.com/qutebrowser/qutebrowser/issues/5359
-            if items:
-                url = items[-1].url
-                if ((url.scheme(), url.host()) == ('qute', 'back') and
-                        len(items) >= 2):
-                    url = items[-2].url
-                self._tab.load_url(url)
+            self._load_items_workaround(items)
             return
 
         if items:
@@ -886,9 +900,10 @@ class _WebEnginePermissions(QObject):
     _options = {
         0: 'content.notifications',
         QWebEnginePage.Geolocation: 'content.geolocation',
-        QWebEnginePage.MediaAudioCapture: 'content.media_capture',
-        QWebEnginePage.MediaVideoCapture: 'content.media_capture',
-        QWebEnginePage.MediaAudioVideoCapture: 'content.media_capture',
+        QWebEnginePage.MediaAudioCapture: 'content.media.audio_capture',
+        QWebEnginePage.MediaVideoCapture: 'content.media.video_capture',
+        QWebEnginePage.MediaAudioVideoCapture:
+            'content.media.audio_video_capture',
     }
 
     _messages = {
