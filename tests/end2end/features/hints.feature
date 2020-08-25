@@ -598,6 +598,8 @@ Feature: Using hints
         And I press the key "<Enter>"
         Then data/hello.txt should be loaded
 
+    ## Other
+
     Scenario: Using --first with normal links
         When I open data/hints/html/simple.html
         And I hint with args "all --first"
@@ -620,9 +622,17 @@ Feature: Using hints
         # The actual check is already done above
         Then no crash should happen
 
-    # Delete hint target
     Scenario: Deleting a simple target
         When I open data/hints/html/simple.html
         And I hint with args "all delete" and follow a
         And I run :hint
         Then the error "No elements found." should be shown
+
+    Scenario: Statusbar text when entering hint mode from other mode
+        When I open data/hints/html/simple.html
+        And I run :enter-mode insert
+        And I hint with args "all"
+        And I run :debug-pyeval objreg.get('main-window', window='current', scope='window').status.txt.text()
+        # Changing tabs will leave hint mode
+        And I wait until qute://pyeval/ is loaded
+        Then the page should contain the plaintext "'Follow hint...'"

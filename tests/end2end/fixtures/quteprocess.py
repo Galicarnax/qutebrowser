@@ -114,6 +114,12 @@ def is_ignored_lowlevel_message(message):
         '*/QtWebEngineProcess: /lib/x86_64-linux-gnu/libdbus-1.so.3: no '
         'version information available (required by '
         '*/libQt5WebEngineCore.so.5)',
+
+        # hunter and Python 3.9
+        # https://github.com/ionelmc/python-hunter/issues/87
+        '<frozen importlib._bootstrap>:*: RuntimeWarning: builtins.type size changed, '
+        'may indicate binary incompatibility. Expected 872 from C header, got 880 from '
+        'PyObject',
     ]
     return any(testutils.pattern_match(pattern=pattern, value=message)
                for pattern in ignored_messages)
@@ -683,9 +689,7 @@ class QuteProc(testprocess.Process):
             if bad_msgs:
                 text = 'Logged unexpected errors:\n\n' + '\n'.join(
                     str(e) for e in bad_msgs)
-                # We'd like to use pytrace=False here but don't as a WORKAROUND
-                # for https://github.com/pytest-dev/pytest/issues/1316
-                pytest.fail(text)
+                pytest.fail(text, pytrace=False)
             else:
                 self._maybe_skip()
         finally:

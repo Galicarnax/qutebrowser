@@ -104,7 +104,7 @@ def version_check(version: str,
         # qVersion() ==/>= parsed, now check if QT_VERSION_STR ==/>= parsed.
         result = op(pkg_resources.parse_version(QT_VERSION_STR), parsed)
     if compiled and result:
-        # FInally, check PYQT_VERSION_STR as well.
+        # Finally, check PYQT_VERSION_STR as well.
         result = op(pkg_resources.parse_version(PYQT_VERSION_STR), parsed)
     return result
 
@@ -124,6 +124,7 @@ def is_single_process() -> bool:
     """Check whether QtWebEngine is running in single-process mode."""
     if objects.backend == usertypes.Backend.QtWebKit:
         return False
+    assert objects.backend == usertypes.Backend.QtWebEngine, objects.backend
     args = QApplication.instance().arguments()
     return '--single-process' in args
 

@@ -208,11 +208,14 @@ def web_tab_setup(qtbot, tab_registry, session_manager_stub,
 
 @pytest.fixture
 def webkit_tab(web_tab_setup, qtbot, cookiejar_and_cache, mode_manager,
-               widget_container, download_stub, webpage):
+               widget_container, download_stub, webpage, monkeypatch):
     webkittab = pytest.importorskip('qutebrowser.browser.webkit.webkittab')
+
+    monkeypatch.setattr(objects, 'backend', usertypes.Backend.QtWebKit)
 
     tab = webkittab.WebKitTab(win_id=0, mode_manager=mode_manager,
                               private=False)
+    tab.backend = usertypes.Backend.QtWebKit
     widget_container.set_widget(tab)
 
     yield tab
@@ -225,6 +228,8 @@ def webkit_tab(web_tab_setup, qtbot, cookiejar_and_cache, mode_manager,
 def webengine_tab(web_tab_setup, qtbot, redirect_webengine_data,
                   tabbed_browser_stubs, mode_manager, widget_container,
                   monkeypatch):
+    monkeypatch.setattr(objects, 'backend', usertypes.Backend.QtWebEngine)
+
     tabwidget = tabbed_browser_stubs[0].widget
     tabwidget.current_index = 0
     tabwidget.index_of = 0
@@ -234,6 +239,7 @@ def webengine_tab(web_tab_setup, qtbot, redirect_webengine_data,
 
     tab = webenginetab.WebEngineTab(win_id=0, mode_manager=mode_manager,
                                     private=False)
+    tab.backend = usertypes.Backend.QtWebEngine
     widget_container.set_widget(tab)
 
     yield tab
@@ -442,9 +448,10 @@ def webengineview(qtbot, monkeypatch, web_tab_setup):
 
 
 @pytest.fixture
-def webpage(qnam):
+def webpage(qnam, monkeypatch):
     """Get a new QWebPage object."""
     QtWebKitWidgets = pytest.importorskip('PyQt5.QtWebKitWidgets')
+    monkeypatch.setattr(objects, 'backend', usertypes.Backend.QtWebKit)
 
     class WebPageStub(QtWebKitWidgets.QWebPage):
 
@@ -466,10 +473,9 @@ def webpage(qnam):
 
 
 @pytest.fixture
-def webview(qtbot, webpage, monkeypatch):
+def webview(qtbot, webpage):
     """Get a new QWebView object."""
     QtWebKitWidgets = pytest.importorskip('PyQt5.QtWebKitWidgets')
-    monkeypatch.setattr(objects, 'backend', usertypes.Backend.QtWebKit)
 
     view = QtWebKitWidgets.QWebView()
     qtbot.add_widget(view)
