@@ -31,11 +31,12 @@ import argparse
 import io
 import pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+DOC_DIR = REPO_ROOT / 'qutebrowser' / 'html' / 'doc'
+
+sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import utils
-
-DOC_DIR = pathlib.Path("qutebrowser/html/doc")
 
 
 class AsciiDoc:
@@ -79,9 +80,9 @@ class AsciiDoc:
 
     def _build_docs(self) -> None:
         """Render .asciidoc files to .html sites."""
-        files = [(pathlib.Path('doc/{}.asciidoc'.format(f)),
+        files = [((REPO_ROOT / 'doc' / '{}.asciidoc'.format(f)),
                   DOC_DIR / (f + ".html")) for f in self.FILES]
-        for src in pathlib.Path('doc/help/').glob('*.asciidoc'):
+        for src in (REPO_ROOT / 'doc' / 'help').glob('*.asciidoc'):
             dst = DOC_DIR / (src.stem + ".html")
             files.append((src, dst))
 
@@ -111,7 +112,7 @@ class AsciiDoc:
         dst_path = DOC_DIR / 'img'
         dst_path.mkdir(exist_ok=True)
         for filename in ['cheatsheet-big.png', 'cheatsheet-small.png']:
-            src = pathlib.Path('doc') / 'img' / filename
+            src = REPO_ROOT / 'doc' / 'img' / filename
             dst = dst_path / filename
             shutil.copy(str(src), str(dst))
 
@@ -120,12 +121,12 @@ class AsciiDoc:
         src = root / filename
         assert self._website is not None    # for mypy
         dst = pathlib.Path(self._website)
-        dst = dst / src.parent.relative_to('.') / (src.stem + ".html")
+        dst = dst / src.parent.relative_to(REPO_ROOT) / (src.stem + ".html")
         dst.parent.mkdir(exist_ok=True)
 
         assert self._tempdir is not None    # for mypy
         modified_src = self._tempdir / src.name
-        shutil.copy('www/header.asciidoc', modified_src)
+        shutil.copy(str(REPO_ROOT / 'www' / 'header.asciidoc'), modified_src)
 
         outfp = io.StringIO()
 
@@ -181,14 +182,14 @@ class AsciiDoc:
 
     def _build_website(self) -> None:
         """Prepare and build the website."""
-        theme_file = (pathlib.Path('www') / 'qute.css').resolve()
+        theme_file = REPO_ROOT / 'www' / 'qute.css'
         assert self._themedir is not None   # for mypy
         shutil.copy(theme_file, self._themedir)
 
         assert self._website is not None    # for mypy
         outdir = pathlib.Path(self._website)
 
-        for item_path in pathlib.Path().rglob('*.asciidoc'):
+        for item_path in pathlib.Path(REPO_ROOT).rglob('*.asciidoc'):
             if item_path.stem in ['header', 'OpenSans-License']:
                 continue
             self._build_website_file(item_path.parent, item_path.name)
@@ -196,17 +197,18 @@ class AsciiDoc:
         copy = {'icons': 'icons', 'doc/img': 'doc/img', 'www/media': 'media/'}
 
         for src, dest in copy.items():
+            full_src = REPO_ROOT / src
             full_dest = outdir / dest
             try:
                 shutil.rmtree(full_dest)
             except FileNotFoundError:
                 pass
-            shutil.copytree(src, full_dest)
+            shutil.copytree(full_src, full_dest)
 
         for dst, link_name in [
                 ('README.html', 'index.html'),
-                ((pathlib.Path('doc') / 'quickstart.html'),
-                 'quickstart.html')]:
+                ((pathlib.Path('doc') / 'quickstart.html'), 'quickstart.html'),
+        ]:
             assert isinstance(dst, (str, pathlib.Path))    # for mypy
             try:
                 (outdir / link_name).symlink_to(dst)
@@ -218,21 +220,16 @@ class AsciiDoc:
         if self._asciidoc is not None:
             return self._asciidoc
 
-        try:
-            subprocess.run(['asciidoc'], stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL, check=True)
-        except OSError:
-            pass
-        else:
-            return ['asciidoc']
-
-        try:
-            subprocess.run(['asciidoc.py'], stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL, check=True)
-        except OSError:
-            pass
-        else:
-            return ['asciidoc.py']
+        for executable in ['asciidoc', 'asciidoc.py']:
+            try:
+                subprocess.run([executable, '--version'],
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL,
+                               check=True)
+            except OSError:
+                pass
+            else:
+                return [executable]
 
         raise FileNotFoundError
 

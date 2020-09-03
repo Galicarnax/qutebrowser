@@ -38,7 +38,7 @@ from qutebrowser.browser.webengine import (webview, webengineelem, tabhistory,
                                            interceptor, webenginequtescheme,
                                            cookies, webenginedownloads,
                                            webenginesettings, certificateerror)
-from qutebrowser.misc import miscwidgets, objects
+from qutebrowser.misc import miscwidgets, objects, quitter
 from qutebrowser.utils import (usertypes, qtutils, log, javascript, utils,
                                message, objreg, jinja, debug)
 from qutebrowser.keyinput import modeman
@@ -74,6 +74,7 @@ def init():
     if webenginesettings.private_profile:
         download_manager.install(webenginesettings.private_profile)
     objreg.register('webengine-download-manager', download_manager)
+    quitter.instance.shutting_down.connect(download_manager.shutdown)
 
     log.init.debug("Initializing cookie filter...")
     cookies.install_filter(webenginesettings.default_profile)
@@ -531,6 +532,13 @@ class WebEngineCaret(browsertab.AbstractCaret):
         self._tab.run_js_async(code, callback)
 
     def _toggle_sel_translate(self, state_str):
+        if self._mode_manager.mode != usertypes.KeyMode.caret:
+            # This may happen if the user switches to another mode after
+            # `:toggle-selection` is executed and before this callback function
+            # is asynchronously called.
+            log.misc.debug("Ignoring caret selection callback in {}".format(
+                self._mode_manager.mode))
+            return
         if state_str is None:
             message.error("Error toggling caret selection")
             return
@@ -681,15 +689,29 @@ class WebEngineHistoryPrivate(browsertab.AbstractHistoryPrivate):
     def deserialize(self, data):
         qtutils.deserialize(data, self._history)
 
+    def _load_items_workaround(self, items):
+        """WORKAROUND for session loading not working on Qt 5.15.
+
+        Just load the current URL, see
+        https://github.com/qutebrowser/qutebrowser/issues/5359
+        """
+        if not items:
+            return
+
+        for i, item in enumerate(items):
+            if item.active:
+                cur_idx = i
+                break
+
+        url = items[cur_idx].url
+        if (url.scheme(), url.host()) == ('qute', 'back') and cur_idx >= 1:
+            url = items[cur_idx - 1].url
+
+        self._tab.load_url(url)
+
     def load_items(self, items):
         if qtutils.version_check('5.15', compiled=False):
-            # WORKAROUND for https://github.com/qutebrowser/qutebrowser/issues/5359
-            if items:
-                url = items[-1].url
-                if ((url.scheme(), url.host()) == ('qute', 'back') and
-                        len(items) >= 2):
-                    url = items[-2].url
-                self._tab.load_url(url)
+            self._load_items_workaround(items)
             return
 
         if items:
@@ -740,6 +762,12 @@ class WebEngineHistory(browsertab.AbstractHistory):
     def _go_to_item(self, item):
         self._tab.before_load_started.emit(item.url())
         self._history.goToItem(item)
+
+    def back_items(self):
+        return self._history.backItems(self._history.count())
+
+    def forward_items(self):
+        return self._history.forwardItems(self._history.count())
 
 
 class WebEngineZoom(browsertab.AbstractZoom):
@@ -886,9 +914,10 @@ class _WebEnginePermissions(QObject):
     _options = {
         0: 'content.notifications',
         QWebEnginePage.Geolocation: 'content.geolocation',
-        QWebEnginePage.MediaAudioCapture: 'content.media_capture',
-        QWebEnginePage.MediaVideoCapture: 'content.media_capture',
-        QWebEnginePage.MediaAudioVideoCapture: 'content.media_capture',
+        QWebEnginePage.MediaAudioCapture: 'content.media.audio_capture',
+        QWebEnginePage.MediaVideoCapture: 'content.media.video_capture',
+        QWebEnginePage.MediaAudioVideoCapture:
+            'content.media.audio_video_capture',
     }
 
     _messages = {
@@ -1364,14 +1393,19 @@ class WebEngineTab(browsertab.AbstractTab):
         fp = self._widget.focusProxy()
         if fp is not None:
             fp.installEventFilter(self._tab_event_filter)
+
         self._child_event_filter = eventfilter.ChildEventFilter(
             eventfilter=self._tab_event_filter,
             widget=self._widget,
-            win_id=self.win_id,
-            focus_workaround=qtutils.version_check(
-                '5.11', compiled=False, exact=True),
             parent=self)
         self._widget.installEventFilter(self._child_event_filter)
+
+        if qtutils.version_check('5.11', compiled=False, exact=True):
+            focus_event_filter = eventfilter.FocusWorkaroundEventFilter(
+                win_id=self.win_id,
+                widget=self._widget,
+                parent=self)
+            self._widget.installEventFilter(focus_event_filter)
 
     @pyqtSlot()
     def _restore_zoom(self):

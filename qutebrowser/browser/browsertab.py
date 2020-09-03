@@ -72,9 +72,11 @@ def create(win_id: int,
     if objects.backend == usertypes.Backend.QtWebEngine:
         from qutebrowser.browser.webengine import webenginetab
         tab_class = webenginetab.WebEngineTab  # type: typing.Type[AbstractTab]
-    else:
+    elif objects.backend == usertypes.Backend.QtWebKit:
         from qutebrowser.browser.webkit import webkittab
         tab_class = webkittab.WebKitTab
+    else:
+        raise utils.Unreachable(objects.backend)
     return tab_class(win_id=win_id, mode_manager=mode_manager, private=private,
                      parent=parent)
 
@@ -84,6 +86,8 @@ def init() -> None:
     if objects.backend == usertypes.Backend.QtWebEngine:
         from qutebrowser.browser.webengine import webenginetab
         webenginetab.init()
+        return
+    assert objects.backend == usertypes.Backend.QtWebKit, objects.backend
 
 
 class WebTabError(Exception):
@@ -689,6 +693,12 @@ class AbstractHistory:
     def _go_to_item(self, item: typing.Any) -> None:
         raise NotImplementedError
 
+    def back_items(self) -> typing.List[typing.Any]:
+        raise NotImplementedError
+
+    def forward_items(self) -> typing.List[typing.Any]:
+        raise NotImplementedError
+
 
 class AbstractElements:
 
@@ -953,7 +963,8 @@ class AbstractTab(QWidget):
     def _set_widget(self, widget: QWidget) -> None:
         # pylint: disable=protected-access
         self._widget = widget
-        self.data.splitter = miscwidgets.InspectorSplitter(widget)
+        self.data.splitter = miscwidgets.InspectorSplitter(
+            win_id=self.win_id, main_webview=widget)
         self._layout.wrap(self, self.data.splitter)
         self.history._history = widget.history()
         self.history.private_api._history = widget.history()
