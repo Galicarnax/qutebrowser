@@ -101,9 +101,9 @@ class WebKitElement(webelem.AbstractWebElement):
         self._check_vanished()
         return self._elem.geometry()
 
-    def classes(self) -> typing.List[str]:
+    def classes(self) -> typing.Set[str]:
         self._check_vanished()
-        return self._elem.classes()
+        return set(self._elem.classes())
 
     def tag_name(self) -> str:
         """Get the tag name for the current element."""
@@ -217,12 +217,14 @@ class WebKitElement(webelem.AbstractWebElement):
                     height *= zoom
                 rect = QRect(int(rect["left"]), int(rect["top"]),
                              int(width), int(height))
-                frame = self._elem.webFrame()
+
+                frame = typing.cast(typing.Optional[QWebFrame], self._elem.webFrame())
                 while frame is not None:
                     # Translate to parent frames' position (scroll position
                     # is taken care of inside getClientRects)
                     rect.translate(frame.geometry().topLeft())
                     frame = frame.parentFrame()
+
                 return rect
 
         return None
@@ -234,12 +236,14 @@ class WebKitElement(webelem.AbstractWebElement):
             geometry = self._elem.geometry()
         else:
             geometry = elem_geometry
-        frame = self._elem.webFrame()
         rect = QRect(geometry)
+
+        frame = typing.cast(typing.Optional[QWebFrame], self._elem.webFrame())
         while frame is not None:
             rect.translate(frame.geometry().topLeft())
             rect.translate(frame.scrollPosition() * -1)
-            frame = frame.parentFrame()
+            frame = typing.cast(typing.Optional[QWebFrame], frame.parentFrame())
+
         return rect
 
     def rect_on_view(self, *, elem_geometry: QRect = None,

@@ -29,7 +29,7 @@ from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Qt, QPoint, QPointF, QUrl,
                           QTimer, QObject)
 from PyQt5.QtNetwork import QAuthenticator
 from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineScript
+from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineScript, QWebEngineHistory
 
 from qutebrowser.config import configdata, config
 from qutebrowser.browser import (browsertab, eventfilter, shared, webelem,
@@ -673,6 +673,10 @@ class WebEngineScroller(browsertab.AbstractScroller):
 class WebEngineHistoryPrivate(browsertab.AbstractHistoryPrivate):
 
     """History-related methods which are not part of the extension API."""
+
+    def __init__(self, tab: 'WebEngineTab') -> None:
+        self._tab = tab
+        self._history = typing.cast(QWebEngineHistory, None)
 
     def serialize(self):
         if not qtutils.version_check('5.9', compiled=False):
@@ -1545,9 +1549,7 @@ class WebEngineTab(browsertab.AbstractTab):
             authenticator.setPassword(answer.password)
         else:
             try:
-                sip.assign(  # type: ignore[attr-defined]
-                    authenticator,
-                    QAuthenticator())
+                sip.assign(authenticator, QAuthenticator())
             except AttributeError:
                 self._show_error_page(url, "Proxy authentication required")
 
@@ -1568,8 +1570,7 @@ class WebEngineTab(browsertab.AbstractTab):
         if not netrc_success and answer is None:
             log.network.debug("Aborting auth")
             try:
-                sip.assign(  # type: ignore[attr-defined]
-                    authenticator, QAuthenticator())
+                sip.assign(authenticator, QAuthenticator())
             except AttributeError:
                 # WORKAROUND for
                 # https://www.riverbankcomputing.com/pipermail/pyqt/2016-December/038400.html
@@ -1584,6 +1585,11 @@ class WebEngineTab(browsertab.AbstractTab):
         self.search.clear()
         super()._on_load_started()
         self.data.netrc_used = False
+
+    @pyqtSlot('qint64')
+    def _on_renderer_process_pid_changed(self, pid):
+        log.webview.debug("Renderer process PID for tab {}: {}"
+                          .format(self.tab_id, pid))
 
     @pyqtSlot(QWebEnginePage.RenderProcessTerminationStatus, int)
     def _on_render_process_terminated(self, status, exitcode):
@@ -1856,6 +1862,12 @@ class WebEngineTab(browsertab.AbstractTab):
         page.loadFinished.connect(self._on_history_trigger)
         page.loadFinished.connect(self._restore_zoom)
         page.loadFinished.connect(self._on_load_finished)
+
+        try:
+            page.renderProcessPidChanged.connect(self._on_renderer_process_pid_changed)
+        except AttributeError:
+            # Added in Qt 5.15.0
+            pass
 
         self.before_load_started.connect(self._on_before_load_started)
         self.shutting_down.connect(

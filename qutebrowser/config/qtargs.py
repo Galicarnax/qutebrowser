@@ -230,6 +230,9 @@ def _qtwebengine_args(
         yield '--enable-logging'
         yield '--v=1'
 
+    if 'wait-renderer-process' in namespace.debug_flags:
+        yield '--renderer-startup-dialog'
+
     blink_settings = list(_darkmode_settings())
     if blink_settings:
         yield '--blink-settings=' + ','.join('{}={}'.format(k, v)
@@ -239,6 +242,10 @@ def _qtwebengine_args(
     if enabled_features:
         yield '--enable-features=' + ','.join(enabled_features)
 
+    yield from _qtwebengine_settings_args()
+
+
+def _qtwebengine_settings_args() -> typing.Iterator[str]:
     settings = {
         'qt.force_software_rendering': {
             'software-opengl': None,
