@@ -84,6 +84,7 @@ CHANGELOG_URLS = {
     'jaraco.functools': 'https://github.com/jaraco/jaraco.functools/blob/master/CHANGES.rst',
     'parse': 'https://github.com/r1chardj0n3s/parse#potential-gotchas',
     'py': 'https://py.readthedocs.io/en/latest/changelog.html#changelog',
+    'Pympler': 'https://github.com/pympler/pympler/blob/master/CHANGELOG.md',
     'pytest-mock': 'https://github.com/pytest-dev/pytest-mock/blob/master/CHANGELOG.rst',
     'pytest-qt': 'https://github.com/pytest-dev/pytest-qt/blob/master/CHANGELOG.rst',
     'wcwidth': 'https://github.com/jquast/wcwidth#history',
@@ -123,6 +124,14 @@ CHANGELOG_URLS = {
     'tldextract': 'https://github.com/john-kurkowski/tldextract/blob/master/CHANGELOG.md',
     'typing_extensions': 'https://github.com/python/typing/commits/master/typing_extensions',
     'diff_cover': 'https://github.com/Bachmann1234/diff_cover/blob/master/CHANGELOG',
+    'pytest-clarity': 'https://github.com/darrenburns/pytest-clarity/commits/master',
+    'pytest-icdiff': 'https://github.com/hjwp/pytest-icdiff/blob/master/HISTORY.rst',
+    'icdiff': 'https://github.com/jeffkaufman/icdiff/blob/master/ChangeLog',
+    'termcolor': 'https://pypi.org/project/termcolor/',
+    'pprintpp': 'https://github.com/wolever/pprintpp/blob/master/CHANGELOG.txt',
+    'beautifulsoup4': 'https://bazaar.launchpad.net/~leonardr/beautifulsoup/bs4/view/head:/CHANGELOG',
+    'check-manifest': 'https://github.com/mgedmin/check-manifest/blob/master/CHANGES.rst',
+    'yamllint': 'https://github.com/adrienverge/yamllint/blob/master/CHANGELOG.rst',
 }
 
 # PyQt versions which need SIP v4
@@ -304,8 +313,8 @@ class Change:
             return '| {} | {} | {} |'.format(self.link, self.old, self.new)
 
 
-def print_changed_files():
-    """Output all changed files from this run."""
+def _get_changed_files():
+    """Get a list of changed files via git."""
     changed_files = set()
     filenames = git_diff('--name-only')
     for filename in filenames:
@@ -313,8 +322,12 @@ def print_changed_files():
         filename = filename.replace('misc/requirements/requirements-', '')
         filename = filename.replace('.txt', '')
         changed_files.add(filename)
-    files_text = '\n'.join('- ' + line for line in sorted(changed_files))
 
+    return sorted(changed_files)
+
+
+def _get_changes():
+    """Get a list of changed versions from git."""
     changes_dict = {}
     diff = git_diff()
     for line in diff:
@@ -334,6 +347,9 @@ def print_changed_files():
             name = line[1:]
             version = '?'
 
+        if name.startswith('#'):  # duplicate requirements
+            name = name[1:].strip()
+
         if name not in changes_dict:
             changes_dict[name] = Change(name)
 
@@ -342,7 +358,15 @@ def print_changed_files():
         elif line.startswith('+'):
             changes_dict[name].new = version
 
-    changes = [change for _name, change in sorted(changes_dict.items())]
+    return [change for _name, change in sorted(changes_dict.items())]
+
+
+def print_changed_files():
+    """Output all changed files from this run."""
+    changed_files = _get_changed_files()
+    files_text = '\n'.join('- ' + line for line in changed_files)
+
+    changes = _get_changes()
     diff_text = '\n'.join(str(change) for change in changes)
 
     utils.print_title('Changed')

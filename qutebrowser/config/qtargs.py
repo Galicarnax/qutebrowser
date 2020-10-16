@@ -24,9 +24,15 @@ import sys
 import typing
 import argparse
 
+try:
+    from PyQt5.QtWebEngine import PYQT_WEBENGINE_VERSION
+except ImportError:  # pragma: no cover
+    # Added in PyQt 5.13
+    PYQT_WEBENGINE_VERSION = None  # type: ignore[assignment]
+
 from qutebrowser.config import config
 from qutebrowser.misc import objects
-from qutebrowser.utils import usertypes, qtutils, utils
+from qutebrowser.utils import usertypes, qtutils, utils, log
 
 
 def qt_args(namespace: argparse.Namespace) -> typing.List[str]:
@@ -59,6 +65,16 @@ def qt_args(namespace: argparse.Namespace) -> typing.List[str]:
     argv += list(_qtwebengine_args(namespace, feature_flags))
 
     return argv
+
+
+def _darkmode_prefix() -> str:
+    """Return the prefix to use for darkmode settings."""
+    if (PYQT_WEBENGINE_VERSION is None or  # type: ignore[unreachable]
+            PYQT_WEBENGINE_VERSION < 0x050f02):
+        return 'darkMode'
+    else:
+        # QtWebEngine 5.15.2 comes with Chromium 83
+        return 'forceDarkMode'
 
 
 def _darkmode_settings() -> typing.Iterator[typing.Tuple[str, str]]:
@@ -96,6 +112,14 @@ def _darkmode_settings() -> typing.Iterator[typing.Tuple[str, str]]:
         False: 'false',
     }
 
+    # Our defaults for policy.images are different from Chromium's, so we mark it as
+    # mandatory setting - except on Qt 5.15.0 where we don't, so we don't get the
+    # workaround warning below if the setting wasn't explicitly customized.
+    smart_image_policy_broken = PYQT_WEBENGINE_VERSION == 0x050f00
+    mandatory_settings = set()
+    if not smart_image_policy_broken:
+        mandatory_settings.add('policy.images')
+
     _setting_description_type = typing.Tuple[
         str,  # qutebrowser option name
         str,  # darkmode setting name
@@ -108,17 +132,17 @@ def _darkmode_settings() -> typing.Iterator[typing.Tuple[str, str]]:
             ('enabled', 'Enabled', bools),
             ('algorithm', 'InversionAlgorithm', algorithms),
         ]  # type: typing.List[_setting_description_type]
-        mandatory_setting = 'enabled'
+        mandatory_settings.add('enabled')
     else:
         settings = [
             ('algorithm', '', algorithms),
         ]
-        mandatory_setting = 'algorithm'
+        mandatory_settings.add('algorithm')
 
     settings += [
-        ('contrast', 'Contrast', None),
         ('policy.images', 'ImagePolicy', image_policies),
         ('policy.page', 'PagePolicy', page_policies),
+        ('contrast', 'Contrast', None),
         ('threshold.text', 'TextBrightnessThreshold', None),
         ('threshold.background', 'BackgroundBrightnessThreshold', None),
         ('grayscale.all', 'Grayscale', bools),
@@ -132,17 +156,22 @@ def _darkmode_settings() -> typing.Iterator[typing.Tuple[str, str]]:
         # actually turned on.
         value = config.instance.get(
             'colors.webpage.darkmode.' + setting,
-            fallback=setting == mandatory_setting)
+            fallback=setting in mandatory_settings)
         if isinstance(value, usertypes.Unset):
+            continue
+
+        if (setting == 'policy.images' and value == 'smart' and
+                smart_image_policy_broken):
+            # WORKAROUND for
+            # https://codereview.qt-project.org/c/qt/qtwebengine-chromium/+/304211
+            log.init.warning("Ignoring colors.webpage.darkmode.policy.images = smart "
+                             "because of Qt 5.15.0 bug")
             continue
 
         if mapping is not None:
             value = mapping[value]
 
-        # FIXME: This is "forceDarkMode" starting with Chromium 83
-        prefix = 'darkMode'
-
-        yield prefix + key, str(value)
+        yield _darkmode_prefix() + key, str(value)
 
 
 def _qtwebengine_enabled_features(
@@ -230,6 +259,9 @@ def _qtwebengine_args(
         yield '--enable-logging'
         yield '--v=1'
 
+    if 'wait-renderer-process' in namespace.debug_flags:
+        yield '--renderer-startup-dialog'
+
     blink_settings = list(_darkmode_settings())
     if blink_settings:
         yield '--blink-settings=' + ','.join('{}={}'.format(k, v)
@@ -239,6 +271,10 @@ def _qtwebengine_args(
     if enabled_features:
         yield '--enable-features=' + ','.join(enabled_features)
 
+    yield from _qtwebengine_settings_args()
+
+
+def _qtwebengine_settings_args() -> typing.Iterator[str]:
     settings = {
         'qt.force_software_rendering': {
             'software-opengl': None,

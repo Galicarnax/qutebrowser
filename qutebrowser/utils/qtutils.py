@@ -43,6 +43,9 @@ try:
     from PyQt5.QtWebKit import qWebKitVersion
 except ImportError:  # pragma: no cover
     qWebKitVersion = None  # type: ignore[assignment]  # noqa: N816
+if typing.TYPE_CHECKING:
+    from PyQt5.QtWebKit import QWebHistory
+    from PyQt5.QtWebEngineWidgets import QWebEngineHistory
 
 from qutebrowser.misc import objects
 from qutebrowser.utils import usertypes
@@ -184,7 +187,13 @@ def check_qdatastream(stream: QDataStream) -> None:
         raise OSError(status_to_str[stream.status()])
 
 
-_QtSerializableType = typing.Union[QObject, QByteArray, QUrl]
+_QtSerializableType = typing.Union[
+    QObject,
+    QByteArray,
+    QUrl,
+    'QWebEngineHistory',
+    'QWebHistory'
+]
 
 
 def serialize(obj: _QtSerializableType) -> QByteArray:
@@ -352,11 +361,11 @@ class PyQIODevice(io.BufferedIOBase):
     def readable(self) -> bool:
         return self.dev.isReadable()
 
-    def readline(self, size: int = -1) -> bytes:
+    def readline(self, size: typing.Optional[int] = -1) -> bytes:
         self._check_open()
         self._check_readable()
 
-        if size < 0:
+        if size is None or size < 0:
             qt_size = 0  # no maximum size
         elif size == 0:
             return b''
@@ -366,7 +375,7 @@ class PyQIODevice(io.BufferedIOBase):
         buf = None  # type: typing.Union[QByteArray, bytes, None]
         if self.dev.canReadLine():
             buf = self.dev.readLine(qt_size)
-        elif size < 0:
+        elif size is None or size < 0:
             buf = self.dev.readAll()
         else:
             buf = self.dev.read(size)
@@ -392,7 +401,10 @@ class PyQIODevice(io.BufferedIOBase):
     def writable(self) -> bool:
         return self.dev.isWritable()
 
-    def write(self, data: typing.Union[bytes, bytearray]) -> int:
+    def write(  # type: ignore[override]
+            self,
+            data: typing.Union[bytes, bytearray]
+    ) -> int:
         self._check_open()
         self._check_writable()
         num = self.dev.write(data)

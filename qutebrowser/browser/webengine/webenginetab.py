@@ -29,7 +29,7 @@ from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Qt, QPoint, QPointF, QUrl,
                           QTimer, QObject)
 from PyQt5.QtNetwork import QAuthenticator
 from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineScript
+from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineScript, QWebEngineHistory
 
 from qutebrowser.config import configdata, config
 from qutebrowser.browser import (browsertab, eventfilter, shared, webelem,
@@ -673,6 +673,10 @@ class WebEngineScroller(browsertab.AbstractScroller):
 class WebEngineHistoryPrivate(browsertab.AbstractHistoryPrivate):
 
     """History-related methods which are not part of the extension API."""
+
+    def __init__(self, tab: 'WebEngineTab') -> None:
+        self._tab = tab
+        self._history = typing.cast(QWebEngineHistory, None)
 
     def serialize(self):
         if not qtutils.version_check('5.9', compiled=False):
@@ -1582,6 +1586,11 @@ class WebEngineTab(browsertab.AbstractTab):
         super()._on_load_started()
         self.data.netrc_used = False
 
+    @pyqtSlot('qint64')
+    def _on_renderer_process_pid_changed(self, pid):
+        log.webview.debug("Renderer process PID for tab {}: {}"
+                          .format(self.tab_id, pid))
+
     @pyqtSlot(QWebEnginePage.RenderProcessTerminationStatus, int)
     def _on_render_process_terminated(self, status, exitcode):
         """Show an error when the renderer process terminated."""
@@ -1854,11 +1863,15 @@ class WebEngineTab(browsertab.AbstractTab):
         page.loadFinished.connect(self._restore_zoom)
         page.loadFinished.connect(self._on_load_finished)
 
+        try:
+            page.renderProcessPidChanged.connect(self._on_renderer_process_pid_changed)
+        except AttributeError:
+            # Added in Qt 5.15.0
+            pass
+
         self.before_load_started.connect(self._on_before_load_started)
-        self.shutting_down.connect(
-            self.abort_questions)  # type: ignore[arg-type]
-        self.load_started.connect(
-            self.abort_questions)  # type: ignore[arg-type]
+        self.shutting_down.connect(self.abort_questions)
+        self.load_started.connect(self.abort_questions)
 
         # pylint: disable=protected-access
         self.audio._connect_signals()

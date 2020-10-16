@@ -576,11 +576,14 @@ content.headers.user_agent:
     completions:
       # See https://techblog.willshouse.com/2012/01/03/most-common-user-agents/
       - - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
-          like Gecko) Chrome/83.0.4103.61 Safari/537.36"
+          like Gecko) Chrome/85.0.4183.121 Safari/537.36"
         - Chrome 83 Win10
       - - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like
-          Gecko) Chrome/83.0.4103.61 Safari/537.36"
+          Gecko) Chrome/85.0.4183.121 Safari/537.36"
         - Chrome 83 Linux
+      - - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36
+          (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
+        - Chrome 83 macOS
   supports_pattern: true
   desc: |
     User agent to send.
@@ -1827,14 +1830,14 @@ tabs.title.format:
     * `{perc}`: Percentage as a string like `[10%]`.
     * `{perc_raw}`: Raw percentage, e.g. `10`.
     * `{current_title}`: Title of the current web page.
-    * `{title_sep}`: The string ` - ` if a title is set, empty otherwise.
+    * `{title_sep}`: The string `" - "` if a title is set, empty otherwise.
     * `{index}`: Index of this tab.
     * `{aligned_index}`: Index of this tab padded with spaces to have the same
       width.
     * `{id}`: Internal tab ID of this tab.
     * `{scroll_pos}`: Page scroll position.
     * `{host}`: Host of the current web page.
-    * `{backend}`: Either ''webkit'' or ''webengine''
+    * `{backend}`: Either `webkit` or `webengine`
     * `{private}`: Indicates when private mode is enabled.
     * `{current_url}`: URL of the current web page.
     * `{protocol}`: Protocol (http/https/...) of the current web page.
@@ -2745,7 +2748,7 @@ colors.webpage.darkmode.contrast:
     QtWebKit: false
 
 colors.webpage.darkmode.policy.images:
-  default: never
+  default: smart
   type:
     name: String
     valid_values:
@@ -2755,10 +2758,11 @@ colors.webpage.darkmode.policy.images:
   desc: >-
       Which images to apply dark mode to.
 
-      WARNING: On Qt 5.15.0, this setting can cause frequent renderer process
-      crashes due to a
+      WARNING: With QtWebengine 5.15.0, this setting can cause frequent renderer
+      process crashes due to a
       https://codereview.qt-project.org/c/qt/qtwebengine-chromium/+/304211[bug
-      in Qt].
+      in Qt]. Thus, the 'smart' setting is ignored and treated like 'never' in
+      that case.
   restart: true
   backend:
     QtWebEngine: Qt 5.14

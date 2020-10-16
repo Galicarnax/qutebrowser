@@ -1663,7 +1663,7 @@ On QtWebKit, this setting is unavailable.
 [[colors.webpage.darkmode.policy.images]]
 === colors.webpage.darkmode.policy.images
 Which images to apply dark mode to.
-WARNING: On Qt 5.15.0, this setting can cause frequent renderer process crashes due to a https://codereview.qt-project.org/c/qt/qtwebengine-chromium/+/304211[bug in Qt].
+WARNING: With QtWebengine 5.15.0, this setting can cause frequent renderer process crashes due to a https://codereview.qt-project.org/c/qt/qtwebengine-chromium/+/304211[bug in Qt]. Thus, the 'smart' setting is ignored and treated like 'never' in that case.
 
 This setting requires a restart.
 
@@ -1675,7 +1675,7 @@ Valid values:
  * +never+: Never apply dark mode filter to any images.
  * +smart+: Apply dark mode based on image content.
 
-Default: +pass:[never]+
+Default: +pass:[smart]+
 
 On QtWebEngine, this setting requires Qt 5.14 or newer.
 
@@ -4048,14 +4048,14 @@ The following placeholders are defined:
 * `{perc}`: Percentage as a string like `[10%]`.
 * `{perc_raw}`: Raw percentage, e.g. `10`.
 * `{current_title}`: Title of the current web page.
-* `{title_sep}`: The string ` - ` if a title is set, empty otherwise.
+* `{title_sep}`: The string `" - "` if a title is set, empty otherwise.
 * `{index}`: Index of this tab.
 * `{aligned_index}`: Index of this tab padded with spaces to have the same
   width.
 * `{id}`: Internal tab ID of this tab.
 * `{scroll_pos}`: Page scroll position.
 * `{host}`: Host of the current web page.
-* `{backend}`: Either ''webkit'' or ''webengine''
+* `{backend}`: Either `webkit` or `webengine`
 * `{private}`: Indicates when private mode is enabled.
 * `{current_url}`: URL of the current web page.
 * `{protocol}`: Protocol (http/https/...) of the current web page.

@@ -34,8 +34,9 @@ import typing
 # in case if there are multiple QB windows open
 from i3ipc import Connection as WMConnection
 
-from PyQt5.QtCore import (pyqtSignal, pyqtSlot, QRect, QPoint, QTimer, Qt,
+from PyQt5.QtCore import (pyqtBoundSignal, pyqtSlot, QRect, QPoint, QTimer, Qt,
                           QCoreApplication, QEventLoop, QByteArray)
+
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QSizePolicy
 from PyQt5.QtGui import QPalette
 
@@ -117,23 +118,20 @@ def raise_window(window, alert=True):
 
 def get_target_window():
     """Get the target window for new tabs, or None if none exist."""
+    getters = {
+        'last-focused': objreg.last_focused_window,
+        'first-opened': objreg.first_opened_window,
+        'last-opened': objreg.last_opened_window,
+        'last-visible': objreg.last_visible_window,
+    }
+    getter = getters[config.val.new_instance_open_target_window]
     try:
-        win_mode = config.val.new_instance_open_target_window
-        if win_mode == 'last-focused':
-            return objreg.last_focused_window()
-        elif win_mode == 'first-opened':
-            return objreg.window_by_index(0)
-        elif win_mode == 'last-opened':
-            return objreg.window_by_index(-1)
-        elif win_mode == 'last-visible':
-            return objreg.last_visible_window()
-        else:
-            raise ValueError("Invalid win_mode {}".format(win_mode))
+        return getter()
     except objreg.NoWindow:
         return None
 
 
-_OverlayInfoType = typing.Tuple[QWidget, pyqtSignal, bool, str]
+_OverlayInfoType = typing.Tuple[QWidget, pyqtBoundSignal, bool, str]
 
 
 class MainWindow(QWidget):
@@ -522,8 +520,7 @@ class MainWindow(QWidget):
         mode_manager.entered.connect(self.status.on_mode_entered)
         mode_manager.left.connect(self.status.on_mode_left)
         mode_manager.left.connect(self.status.cmd.on_mode_left)
-        mode_manager.left.connect(
-            message.global_bridge.mode_left)  # type: ignore[arg-type]
+        mode_manager.left.connect(message.global_bridge.mode_left)
 
         # xkbswitch
         mode_manager.entered.connect(self._xkb_switch.on_mode_entered)
@@ -532,14 +529,10 @@ class MainWindow(QWidget):
         # commands
         mode_manager.keystring_updated.connect(
             self.status.keystring.on_keystring_updated)
-        self.status.cmd.got_cmd[str].connect(  # type: ignore[index]
-            self._commandrunner.run_safely)
-        self.status.cmd.got_cmd[str, int].connect(  # type: ignore[index]
-            self._commandrunner.run_safely)
-        self.status.cmd.returnPressed.connect(
-            self.tabbed_browser.on_cmd_return_pressed)
-        self.status.cmd.got_search.connect(
-            self._command_dispatcher.search)
+        self.status.cmd.got_cmd[str].connect(self._commandrunner.run_safely)
+        self.status.cmd.got_cmd[str, int].connect(self._commandrunner.run_safely)
+        self.status.cmd.returnPressed.connect(self.tabbed_browser.on_cmd_return_pressed)
+        self.status.cmd.got_search.connect(self._command_dispatcher.search)
 
         # key hint popup
         mode_manager.keystring_updated.connect(self._keyhint.update_keyhint)

@@ -18,8 +18,15 @@
 
 import sys
 import os
+import logging
 
 import pytest
+
+try:
+    from PyQt5.QtWebEngine import PYQT_WEBENGINE_VERSION
+except ImportError:
+    # Added in PyQt 5.13
+    PYQT_WEBENGINE_VERSION = None
 
 from qutebrowser import qutebrowser
 from qutebrowser.config import qtargs, configdata
@@ -134,18 +141,24 @@ class TestQtArgs:
             assert '--disable-in-process-stack-traces' in args
             assert '--enable-in-process-stack-traces' not in args
 
-    @pytest.mark.parametrize('flags, added', [
-        ([], False),
-        (['--debug-flag', 'chromium'], True),
+    @pytest.mark.parametrize('flags, args', [
+        ([], []),
+        (['--debug-flag', 'chromium'], ['--enable-logging', '--v=1']),
+        (['--debug-flag', 'wait-renderer-process'], ['--renderer-startup-dialog']),
     ])
-    def test_chromium_debug(self, monkeypatch, parser, flags, added):
+    def test_chromium_flags(self, monkeypatch, parser, flags, args):
         monkeypatch.setattr(qtargs.objects, 'backend',
                             usertypes.Backend.QtWebEngine)
         parsed = parser.parse_args(flags)
         args = qtargs.qt_args(parsed)
 
-        for arg in ['--enable-logging', '--v=1']:
-            assert (arg in args) == added
+        if args:
+            for arg in args:
+                assert arg in args
+        else:
+            assert '--enable-logging' not in args
+            assert '--v=1' not in args
+            assert '--renderer-startup-dialog' not in args
 
     @pytest.mark.parametrize('config, added', [
         ('none', False),
@@ -394,7 +407,17 @@ class TestQtArgs:
         parsed = parser.parse_args([])
         args = qtargs.qt_args(parsed)
 
-        assert '--blink-settings=darkModeEnabled=true' in args
+        old = '--blink-settings=darkModeEnabled=true,darkModeImagePolicy=2'
+        new = '--blink-settings=forceDarkModeEnabled=true,forceDarkModeImagePolicy=2'
+
+        assert old in args or new in args
+
+
+def add_prefix(name):
+    return qtargs._darkmode_prefix() + name
+
+
+smart_image_policy_broken = PYQT_WEBENGINE_VERSION == 0x050f00
 
 
 class TestDarkMode:
@@ -415,25 +438,25 @@ class TestDarkMode:
         (
             {'enabled': True},
             True,
-            [('darkModeEnabled', 'true')]
+            [(add_prefix('Enabled'), 'true')]
         ),
         (
             {'enabled': True},
             False,
-            [('darkMode', '4')]
+            [(add_prefix(''), '4')]
         ),
 
         # Algorithm
         (
             {'enabled': True, 'algorithm': 'brightness-rgb'},
             True,
-            [('darkModeEnabled', 'true'),
-             ('darkModeInversionAlgorithm', '2')],
+            [(add_prefix('Enabled'), 'true'),
+             (add_prefix('InversionAlgorithm'), '2')],
         ),
         (
             {'enabled': True, 'algorithm': 'brightness-rgb'},
             False,
-            [('darkMode', '2')],
+            [(add_prefix(''), '2')],
         ),
 
     ])
@@ -445,23 +468,32 @@ class TestDarkMode:
                             lambda version, exact=False, compiled=True:
                             new_qt)
 
+        if expected:
+            expected.append((add_prefix('ImagePolicy'), '2'))
+
         assert list(qtargs._darkmode_settings()) == expected
 
     @pytest.mark.parametrize('setting, value, exp_key, exp_val', [
         ('contrast', -0.5,
-         'darkModeContrast', '-0.5'),
+         'Contrast', '-0.5'),
         ('policy.page', 'smart',
-         'darkModePagePolicy', '1'),
-        ('policy.images', 'smart',
-         'darkModeImagePolicy', '2'),
+         'PagePolicy', '1'),
+        pytest.param(
+            'policy.images', 'smart',
+            'ImagePolicy', '2',
+            marks=pytest.mark.skipif(
+                PYQT_WEBENGINE_VERSION == 0x050f00,
+                reason='smart setting is broken with QtWebEngine 5.15.0'
+            )
+        ),
         ('threshold.text', 100,
-         'darkModeTextBrightnessThreshold', '100'),
+         'TextBrightnessThreshold', '100'),
         ('threshold.background', 100,
-         'darkModeBackgroundBrightnessThreshold', '100'),
+         'BackgroundBrightnessThreshold', '100'),
         ('grayscale.all', True,
-         'darkModeGrayscale', 'true'),
+         'Grayscale', 'true'),
         ('grayscale.images', 0.5,
-         'darkModeImageGrayscale', '0.5'),
+         'ImageGrayscale', '0.5'),
     ])
     def test_customization(self, config_stub, monkeypatch,
                            setting, value, exp_key, exp_val):
@@ -471,8 +503,44 @@ class TestDarkMode:
                             lambda version, exact=False, compiled=True:
                             True)
 
-        expected = [('darkModeEnabled', 'true'), (exp_key, exp_val)]
+        expected = []
+        expected.append((add_prefix('Enabled'), 'true'))
+        if exp_key != 'ImagePolicy':
+            expected.append((add_prefix('ImagePolicy'), '2'))
+        expected.append((add_prefix(exp_key), exp_val))
+
         assert list(qtargs._darkmode_settings()) == expected
+
+    @pytest.mark.parametrize('webengine_version, expected', [
+        (None, 'darkMode'),
+        (0x050e00, 'darkMode'),  # 5.14
+        (0x050f00, 'darkMode'),  # 5.15.0
+        (0x050f01, 'darkMode'),  # 5.15.0
+        (0x050f02, 'forceDarkMode'),  # 5.15.2
+        (0x050f02, 'forceDarkMode'),  # 5.15.2
+        (0x060000, 'forceDarkMode'),  # 6
+    ])
+    def test_darkmode_prefix(self, monkeypatch, webengine_version, expected):
+        monkeypatch.setattr(qtargs, 'PYQT_WEBENGINE_VERSION', webengine_version)
+        assert qtargs._darkmode_prefix() == expected
+
+    def test_broken_smart_images_policy(self, config_stub, monkeypatch, caplog):
+        config_stub.val.colors.webpage.darkmode.enabled = True
+        config_stub.val.colors.webpage.darkmode.policy.images = 'smart'
+        monkeypatch.setattr(qtargs, 'PYQT_WEBENGINE_VERSION', 0x050f00)
+
+        with caplog.at_level(logging.WARNING):
+            settings = list(qtargs._darkmode_settings())
+
+        assert caplog.messages[-1] == (
+            'Ignoring colors.webpage.darkmode.policy.images = smart because of '
+            'Qt 5.15.0 bug')
+
+        expected = [
+            [('darkModeEnabled', 'true')],  # Qt 5.15
+            [('darkMode', '4')],  # Qt 5.14
+        ]
+        assert settings in expected
 
     def test_new_chromium(self):
         """Fail if we encounter an unknown Chromium version.
@@ -487,7 +555,8 @@ class TestDarkMode:
         assert version._chromium_version() in [
             'unavailable',  # QtWebKit
             '77.0.3865.129',  # Qt 5.14
-            '80.0.3987.163',  # Qt 5.15
+            '80.0.3987.163',  # Qt 5.15.0
+            '83.0.4103.122',  # Qt 5.15.2
         ]
 
     def test_options(self, configdata_init):
