@@ -22,7 +22,7 @@
 import re
 import functools
 import xml.etree.ElementTree
-import typing
+from typing import cast, Iterable
 
 from PyQt5.QtCore import pyqtSlot, Qt, QUrl, QPoint, QTimer, QSizeF, QSize
 from PyQt5.QtGui import QIcon
@@ -201,8 +201,7 @@ class WebKitCaret(browsertab.AbstractCaret):
                  tab: 'WebKitTab',
                  mode_manager: modeman.ModeManager,
                  parent: QWidget = None) -> None:
-        super().__init__(mode_manager, parent)
-        self._tab = tab
+        super().__init__(tab, mode_manager, parent)
         self._selection_state = browsertab.SelectionState.none
 
     @pyqtSlot(usertypes.KeyMode)
@@ -625,7 +624,7 @@ class WebKitHistoryPrivate(browsertab.AbstractHistoryPrivate):
 
     def __init__(self, tab: 'WebKitTab') -> None:
         self._tab = tab
-        self._history = typing.cast(QWebHistory, None)
+        self._history = cast(QWebHistory, None)
 
     def serialize(self):
         return qtutils.serialize(self._history)
@@ -693,9 +692,7 @@ class WebKitElements(browsertab.AbstractElements):
 
     """QtWebKit implemementations related to elements on the page."""
 
-    def __init__(self, tab: 'WebKitTab') -> None:
-        super().__init__()
-        self._tab = tab
+    _tab: 'WebKitTab'
 
     def find_css(self, selector, callback, error_cb, *, only_visible=False):
         utils.unused(error_cb)
@@ -706,8 +703,7 @@ class WebKitElements(browsertab.AbstractElements):
         elems = []
         frames = webkitelem.get_child_frames(mainframe)
         for f in frames:
-            frame_elems = typing.cast(
-                typing.Iterable[QWebElement], f.findAllElements(selector))
+            frame_elems = cast(Iterable[QWebElement], f.findAllElements(selector))
             for elem in frame_elems:
                 elems.append(webkitelem.WebKitElement(elem, tab=self._tab))
 

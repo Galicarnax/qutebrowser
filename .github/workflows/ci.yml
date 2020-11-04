@@ -100,11 +100,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          ### PyQt 5.7.1 (Python 3.5)
-          # - testenv: py35-pyqt57
-          #   os: ubuntu-16.04
-          #   python: 3.5
-          #   experimental: true
           ### PyQt 5.9 (Python 3.6)
           - testenv: py36-pyqt59
             os: ubuntu-18.04
@@ -132,7 +127,7 @@ jobs:
           ### PyQt 5.15 (Python 3.9)
           - testenv: py39-pyqt515
             os: ubuntu-20.04
-            python: 3.9-dev
+            python: 3.9
           ### PyQt 5.15 (Python 3.8, with coverage)
           - testenv: py38-pyqt515-cov
             os: ubuntu-20.04

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Mode manager singleton which handles the current keyboard mode."""
+"""Mode manager (per window) which handles the current keyboard mode."""
 
 import functools
 from typing import Mapping, Callable, MutableMapping, Union, Set, cast
@@ -54,8 +54,8 @@ class KeyEvent:
         text: A string (QKeyEvent::text).
     """
 
-    key = attr.ib()  # type: Qt.Key
-    text = attr.ib()  # type: str
+    key: Qt.Key = attr.ib()
+    text: str = attr.ib()
 
     @classmethod
     def from_event(cls, event: QKeyEvent) -> 'KeyEvent':
@@ -78,16 +78,18 @@ class UnavailableError(Exception):
 
 def init(win_id: int, parent: QObject) -> 'ModeManager':
     """Initialize the mode manager and the keyparsers for the given win_id."""
+    commandrunner = runners.CommandRunner(win_id)
+
     modeman = ModeManager(win_id, parent)
     objreg.register('mode-manager', modeman, scope='window', window=win_id)
-
-    commandrunner = runners.CommandRunner(win_id)
 
     hintmanager = hints.HintManager(win_id, parent=parent)
     objreg.register('hintmanager', hintmanager, scope='window',
                     window=win_id, command_only=True)
 
-    keyparsers = {
+    modeman.hintmanager = hintmanager
+
+    keyparsers: ParserDictType = {
         usertypes.KeyMode.normal:
             modeparsers.NormalKeyParser(
                 win_id=win_id,
@@ -184,7 +186,7 @@ def init(win_id: int, parent: QObject) -> 'ModeManager':
                 win_id=win_id,
                 commandrunner=commandrunner,
                 parent=modeman),
-    }  # type: ParserDictType
+    }
 
     for mode, parser in keyparsers.items():
         modeman.register(mode, parser)
@@ -227,6 +229,7 @@ class ModeManager(QObject):
 
     Attributes:
         mode: The mode we're currently in.
+        hintmanager: The HintManager associated with this window.
         _win_id: The window ID of this ModeManager
         _prev_mode: Mode before a prompt popped up
         parsers: A dictionary of modes and their keyparsers.
@@ -256,10 +259,12 @@ class ModeManager(QObject):
     def __init__(self, win_id: int, parent: QObject = None) -> None:
         super().__init__(parent)
         self._win_id = win_id
-        self.parsers = {}  # type: ParserDictType
+        self.parsers: ParserDictType = {}
         self._prev_mode = usertypes.KeyMode.normal
         self.mode = usertypes.KeyMode.normal
-        self._releaseevents_to_pass = set()  # type: Set[KeyEvent]
+        self._releaseevents_to_pass: Set[KeyEvent] = set()
+        # Set after __init__
+        self.hintmanager = cast(hints.HintManager, None)
 
     def __repr__(self) -> str:
         return utils.get_repr(self, mode=self.mode)
@@ -452,12 +457,12 @@ class ModeManager(QObject):
         Return:
             True if event should be filtered, False otherwise.
         """
-        handlers = {
+        handlers: Mapping[QEvent.Type, Callable[[QKeyEvent], bool]] = {
             QEvent.KeyPress: self._handle_keypress,
             QEvent.KeyRelease: self._handle_keyrelease,
             QEvent.ShortcutOverride:
                 functools.partial(self._handle_keypress, dry_run=True),
-        }  # type: Mapping[QEvent.Type, Callable[[QKeyEvent], bool]]
+        }
         handler = handlers[event.type()]
         return handler(cast(QKeyEvent, event))
 

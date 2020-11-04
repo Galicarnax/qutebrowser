@@ -15,6 +15,33 @@ breaking changes (such as renamed commands) can happen in minor releases.
 // `Fixed` for any bug fixes.
 // `Security` to invite users to upgrade in case of vulnerabilities.
 
+v2.0.0 (unreleased)
+-------------------
+
+Major changes
+~~~~~~~~~~~~~
+
+- At least Python 3.6 is now required to run qutebrowser, support for Python
+  3.5 is dropped. Note that Python 3.5 is
+  https://www.python.org/downloads/release/python-3510/[no longer supported
+  upstream] since September 2020.
+
+Changed
+~~~~~~~
+
+- `config.py` files now are required to have either
+  `config.load_autoconfig(False)` (don't load `autoconfig.yml`) or
+  `config.load_autoconfig()` (do load `autoconfig.yml`) in them.
+- The `colors.webpage.darkmode.*` settings are now also supported with older Qt
+  versions (Qt 5.10 to 5.13) rather than just with Qt 5.14 and above.
+- For regexes in the config (`hints.{prev,next}_regexes`), certain patterns
+  which will change meanings in future Python versions are now disallowed. This is
+  the case for character sets starting with a literal `[` or containing literal
+  character sequences `--`, `&&`, `~~`, or `||`. To avoid a warning, remove the
+  duplicate characters or escape them with a backslash.
+- If `prompt(..., "default")` is used via JS, the default text is now
+  pre-selected in the prompt shown by qutebrowser.
+
 v1.14.0 (2020-10-15)
 --------------------
 

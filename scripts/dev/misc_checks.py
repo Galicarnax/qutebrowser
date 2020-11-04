@@ -28,7 +28,6 @@ import argparse
 import subprocess
 import tokenize
 import traceback
-import collections
 import pathlib
 from typing import List, Iterator, Optional
 
@@ -101,6 +100,17 @@ def check_git(_args: argparse.Namespace = None) -> bool:
     return status
 
 
+def _check_spelling_file(path, fobj, patterns):
+    ok = True
+    for num, line in enumerate(fobj, start=1):
+        for pattern, explanation in patterns:
+            if pattern.search(line):
+                ok = False
+                print(f'{path}:{num}: Found "{pattern.pattern}" - ', end='')
+                utils.print_col(explanation, 'blue')
+    return ok
+
+
 def check_spelling(args: argparse.Namespace) -> Optional[bool]:
     """Check commonly misspelled words."""
     # Words which I often misspell
@@ -119,6 +129,37 @@ def check_spelling(args: argparse.Namespace) -> Optional[bool]:
               'eventloops', 'sizehint', 'statemachine', 'metaobject',
               'logrecord'}
 
+    patterns = [
+        (
+            re.compile(r'[{}{}]{}'.format(w[0], w[0].upper(), w[1:])),
+            "Common misspelling or non-US spelling"
+        ) for w in words
+    ]
+    patterns += [
+        (
+            re.compile(r'(?i)# noqa(?!: )'),
+            "Don't use a blanket 'noqa', use something like 'noqa: X123' instead.",
+        ),
+        (
+            re.compile(r'# type: ignore[^\[]'),
+            ("Don't use a blanket 'type: ignore', use something like "
+             "'type: ignore[error-code]' instead."),
+        ),
+        (
+            re.compile(r'# type: (?!ignore\[)'),
+            "Don't use type comments, use type annotations instead.",
+        ),
+        (
+            re.compile(r': typing\.'),
+            "Don't use typing.SomeType, do 'from typing import SomeType' instead.",
+        ),
+        (
+            re.compile(r"""monkeypatch\.setattr\(['"]"""),
+            "Don't use monkeypatch.setattr('obj.attr', value), use "
+            "setattr(obj, 'attr', value) instead.",
+        ),
+    ]
+
     # Files which should be ignored, e.g. because they come from another
     # package
     hint_data = pathlib.Path('tests', 'end2end', 'data', 'hints')
@@ -129,20 +170,12 @@ def check_spelling(args: argparse.Namespace) -> Optional[bool]:
         hint_data / 'bootstrap' / 'bootstrap.css',
     ]
 
-    seen = collections.defaultdict(list)
     try:
         ok = True
         for path in _get_files(verbose=args.verbose, ignored=ignored):
             with tokenize.open(str(path)) as f:
-                for line in f:
-                    for w in words:
-                        pattern = '[{}{}]{}'.format(w[0], w[0].upper(), w[1:])
-                        if (re.search(pattern, line) and
-                                path not in seen[w] and
-                                '# pragma: no spellcheck' not in line):
-                            print('Found "{}" in {}!'.format(w, path))
-                            seen[w].append(path)
-                            ok = False
+                if not _check_spelling_file(path, f, patterns):
+                    ok = False
         print()
         return ok
     except Exception:
@@ -203,20 +236,29 @@ def check_userscripts_descriptions(_args: argparse.Namespace = None) -> bool:
 
 
 def main() -> int:
+    checkers = {
+        'git': check_git,
+        'vcs': check_vcs_conflict,
+        'spelling': check_spelling,
+        'userscripts': check_userscripts_descriptions,
+    }
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', action='store_true', help='Show checked filenames')
     parser.add_argument('checker',
-                        choices=('git', 'vcs', 'spelling', 'userscripts'),
+                        choices=list(checkers) + ['all'],
                         help="Which checker to run.")
     args = parser.parse_args()
-    if args.checker == 'git':
-        ok = check_git(args)
-    elif args.checker == 'vcs':
-        ok = check_vcs_conflict(args)
-    elif args.checker == 'spelling':
-        ok = check_spelling(args)
-    elif args.checker == 'userscripts':
-        ok = check_userscripts_descriptions(args)
+
+    if args.checker == 'all':
+        retvals = []
+        for name, checker in checkers.items():
+            utils.print_title(name)
+            retvals.append(checker(args))
+        return 0 if all(retvals) else 1
+
+    checker = checkers[args.checker]
+    ok = checker(args)
     return 0 if ok else 1
 
 
