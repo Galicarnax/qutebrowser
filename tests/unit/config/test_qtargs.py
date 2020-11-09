@@ -42,8 +42,7 @@ class TestQtArgs:
     @pytest.fixture(autouse=True)
     def reduce_args(self, monkeypatch, config_stub):
         """Make sure no --disable-shared-workers/referer argument get added."""
-        monkeypatch.setattr(qtargs.qtutils, 'version_check',
-                            lambda version, compiled=False: True)
+        monkeypatch.setattr(qtargs.qtutils, 'qVersion', lambda: '5.15.0')
         config_stub.val.content.headers.referer = 'always'
 
     @pytest.mark.parametrize('args, expected', [
@@ -95,8 +94,7 @@ class TestQtArgs:
     ])
     def test_shared_workers(self, config_stub, monkeypatch, parser,
                             backend, expected):
-        monkeypatch.setattr(qtargs.qtutils, 'version_check',
-                            lambda version, compiled=False: False)
+        monkeypatch.setattr(qtargs.qtutils, 'qVersion', lambda: '5.14.0')
         monkeypatch.setattr(qtargs.objects, 'backend', backend)
         parsed = parser.parse_args([])
         args = qtargs.qt_args(parsed)
@@ -168,25 +166,6 @@ class TestQtArgs:
         args = qtargs.qt_args(parsed)
         assert ('--disable-gpu' in args) == added
 
-    @utils.qt510
-    @pytest.mark.parametrize('new_version, autoplay, added', [
-        (True, False, False),  # new enough to not need it
-        (False, True, False),  # autoplay enabled
-        (False, False, True),
-    ])
-    def test_autoplay(self, config_stub, monkeypatch, parser,
-                      new_version, autoplay, added):
-        monkeypatch.setattr(qtargs.objects, 'backend',
-                            usertypes.Backend.QtWebEngine)
-        config_stub.val.content.autoplay = autoplay
-        monkeypatch.setattr(qtargs.qtutils, 'version_check',
-                            lambda version, compiled=False: new_version)
-
-        parsed = parser.parse_args([])
-        args = qtargs.qt_args(parsed)
-        assert ('--autoplay-policy=user-gesture-required' in args) == added
-
-    @utils.qt59
     @pytest.mark.parametrize('policy, arg', [
         ('all-interfaces', None),
 
@@ -314,26 +293,20 @@ class TestQtArgs:
 
         assert ('--force-dark-mode' in args) == added
 
-    @pytest.mark.parametrize('bar, new_qt, is_mac, added', [
+    @pytest.mark.parametrize('bar, is_mac, added', [
         # Overlay bar enabled
-        ('overlay', True, False, True),
+        ('overlay', False, True),
         # No overlay on mac
-        ('overlay', True, True, False),
-        ('overlay', False, True, False),
-        # No overlay on old Qt
-        ('overlay', False, False, False),
+        ('overlay', True, False),
         # Overlay disabled
-        ('when-searching', True, False, False),
-        ('always', True, False, False),
-        ('never', True, False, False),
+        ('when-searching', False, False),
+        ('always', False, False),
+        ('never', False, False),
     ])
     def test_overlay_scrollbar(self, config_stub, monkeypatch, parser,
-                               bar, new_qt, is_mac, added):
+                               bar, is_mac, added):
         monkeypatch.setattr(qtargs.objects, 'backend',
                             usertypes.Backend.QtWebEngine)
-        monkeypatch.setattr(qtargs.qtutils, 'version_check',
-                            lambda version, exact=False, compiled=True:
-                            new_qt)
         monkeypatch.setattr(qtargs.utils, 'is_mac', is_mac)
         # Avoid WebRTC pipewire feature
         monkeypatch.setattr(qtargs.utils, 'is_linux', False)
@@ -387,7 +360,6 @@ class TestQtArgs:
         assert combined_flag in args
         assert overlay_flag not in args
 
-    @utils.qt510
     def test_blink_settings(self, config_stub, monkeypatch, parser):
         from qutebrowser.browser.webengine import darkmode
         monkeypatch.setattr(qtargs.objects, 'backend',

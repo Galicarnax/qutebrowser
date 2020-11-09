@@ -199,7 +199,7 @@ def _init_pulseaudio():
     WORKAROUND for https://bugreports.qt.io/browse/QTBUG-85363
 
     Affected Qt versions:
-    - Older than 5.11
+    - Older than 5.11 (which is unsupported)
     - 5.14.0 to 5.15.0 (inclusive)
 
     However, we set this on all versions so that qutebrowser's icon gets picked
@@ -365,10 +365,6 @@ def _open_special_pages(args):
         ('webkit-warning-shown',
          objects.backend == usertypes.Backend.QtWebKit,
          'qute://warning/webkit'),
-
-        ('old-qt-warning-shown',
-         not qtutils.version_check('5.11'),
-         'qute://warning/old-qt'),
 
         ('session-warning-shown',
          qtutils.version_check('5.15', compiled=False),
@@ -536,7 +532,9 @@ class Application(QApplication):
         self.launch_time = datetime.datetime.now()
         self.focusObjectChanged.connect(  # type: ignore[attr-defined]
             self.on_focus_object_changed)
+
         self.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+        self.setAttribute(Qt.AA_MacDontSwapCtrlAndMeta, True)
 
         self.new_window.connect(self._on_new_window)
 
