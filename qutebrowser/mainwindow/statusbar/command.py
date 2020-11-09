@@ -22,7 +22,7 @@
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QSize
 from PyQt5.QtGui import QKeyEvent
-from PyQt5.QtWidgets import QSizePolicy, QWidget
+from PyQt5.QtWidgets import QSizePolicy, QWidget, QProxyStyle
 
 from qutebrowser.keyinput import modeman, modeparsers
 from qutebrowser.api import cmdutils
@@ -30,6 +30,22 @@ from qutebrowser.misc import cmdhistory, editor
 from qutebrowser.misc import miscwidgets as misc
 from qutebrowser.utils import usertypes, log, objreg, message, utils
 from qutebrowser.config import config
+
+
+
+class LineEditStyle(QProxyStyle):
+    def __init__(self, ss, w):
+        super(LineEditStyle, self).__init__(ss)
+        self.cursor_width = w/2
+
+    def setCursorWidth(self, w):
+        self.cursor_width = w
+
+    def pixelMetric(self, metric, option, widget):
+        if metric == QProxyStyle.PM_TextCursorWidth:
+            if self.cursor_width > 0:
+                return self.cursor_width
+        return QProxyStyle.pixelMetric(self, metric, option, widget)
 
 
 class Command(misc.MinimalLineEditMixin, misc.CommandLineEdit):
@@ -71,10 +87,16 @@ class Command(misc.MinimalLineEditMixin, misc.CommandLineEdit):
             self.history.changed.connect(command_history.changed)
         self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Ignored)
 
+        style = LineEditStyle(self.style(), 26)
+        self.setStyle(style)
+
         self.cursorPositionChanged.connect(self.update_completion)
         self.textChanged.connect(self.update_completion)
         self.textChanged.connect(self.updateGeometry)
         self.textChanged.connect(self._incremental_search)
+
+
+
 
     def _handle_search(self) -> bool:
         """Check if the currently entered text is a search, and if so, run it.
