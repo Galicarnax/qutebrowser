@@ -56,8 +56,8 @@ from typing import (Any, Callable, Dict as DictType, Iterable, Iterator,
 import attr
 import yaml
 from PyQt5.QtCore import QUrl, Qt
-from PyQt5.QtGui import QColor, QFontDatabase
-from PyQt5.QtWidgets import QTabWidget, QTabBar, QApplication
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import QTabWidget, QTabBar
 from PyQt5.QtNetwork import QNetworkProxy
 
 from qutebrowser.misc import objects, debugcachestats
@@ -96,9 +96,15 @@ class ValidValues:
         generate_docs: Whether to show the values in the docs.
     """
 
-    def __init__(self,
-                 *values: Union[str, DictType[str, str], Tuple[str, str]],
-                 generate_docs: bool = True) -> None:
+    def __init__(
+            self,
+            *values: Union[
+                str,
+                DictType[str, Optional[str]],
+                Tuple[str, Optional[str]],
+            ],
+            generate_docs: bool = True,
+    ) -> None:
         if not values:
             raise ValueError("ValidValues with no values makes no sense!")
         self.descriptions: DictType[str, str] = {}
@@ -107,17 +113,18 @@ class ValidValues:
         for value in values:
             if isinstance(value, str):
                 # Value without description
-                self.values.append(value)
+                val = value
+                desc = None
             elif isinstance(value, dict):
                 # List of dicts from configdata.yml
                 assert len(value) == 1, value
-                value, desc = list(value.items())[0]
-                self.values.append(value)
-                self.descriptions[value] = desc
+                val, desc = list(value.items())[0]
             else:
-                # (value, description) tuple
-                self.values.append(value[0])
-                self.descriptions[value[0]] = value[1]
+                val, desc = value
+
+            self.values.append(val)
+            if desc is not None:
+                self.descriptions[val] = desc
 
     def __contains__(self, val: str) -> bool:
         return val in self.values
@@ -308,17 +315,10 @@ class BaseType:
         """
         if self.valid_values is None:
             return None
-        else:
-            out = []
-            for val in self.valid_values:
-                try:
-                    desc = self.valid_values.descriptions[val]
-                except KeyError:
-                    # Some values are self-explaining and don't need a
-                    # description.
-                    desc = ""
-                out.append((val, desc))
-            return out
+        return [
+            (val, self.valid_values.descriptions.get(val, ""))
+            for val in self.valid_values
+        ]
 
     def __repr__(self) -> str:
         return utils.get_repr(self, none_ok=self.none_ok)
@@ -329,14 +329,15 @@ class MappingType(BaseType):
     """Base class for any setting which has a mapping to the given values.
 
     Attributes:
-        MAPPING: The mapping to use.
+        MAPPING: A mapping from config values to (translated_value, docs) tuples.
     """
 
-    MAPPING: DictType[str, Any] = {}
+    MAPPING: DictType[str, Tuple[Any, Optional[str]]] = {}
 
-    def __init__(self, none_ok: bool = False, valid_values: ValidValues = None) -> None:
+    def __init__(self, none_ok: bool = False) -> None:
         super().__init__(none_ok)
-        self.valid_values = valid_values
+        self.valid_values = ValidValues(
+            *[(key, doc) for (key, (_val, doc)) in self.MAPPING.items()])
 
     def to_py(self, value: Any) -> Any:
         self._basic_py_validation(value, str)
@@ -345,7 +346,8 @@ class MappingType(BaseType):
         elif not value:
             return None
         self._validate_valid_values(value.lower())
-        return self.MAPPING[value.lower()]
+        mapped, _doc = self.MAPPING[value.lower()]
+        return mapped
 
     def __repr__(self) -> str:
         return utils.get_repr(self, none_ok=self.none_ok,
@@ -998,20 +1000,11 @@ class ColorSystem(MappingType):
 
     """The color system to use for color interpolation."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(
-            none_ok,
-            valid_values=ValidValues(
-                ('rgb', "Interpolate in the RGB color system."),
-                ('hsv', "Interpolate in the HSV color system."),
-                ('hsl', "Interpolate in the HSL color system."),
-                ('none', "Don't show a gradient.")))
-
     MAPPING = {
-        'rgb': QColor.Rgb,
-        'hsv': QColor.Hsv,
-        'hsl': QColor.Hsl,
-        'none': None,
+        'rgb': (QColor.Rgb, "Interpolate in the RGB color system."),
+        'hsv': (QColor.Hsv, "Interpolate in the HSV color system."),
+        'hsl': (QColor.Hsl, "Interpolate in the HSL color system."),
+        'none': (None, "Don't show a gradient."),
     }
 
 
@@ -1019,19 +1012,13 @@ class IgnoreCase(MappingType):
 
     """Whether to search case insensitively."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(
-            none_ok,
-            valid_values=ValidValues(
-                ('always', "Search case-insensitively."),
-                ('never', "Search case-sensitively."),
-                ('smart', ("Search case-sensitively if there are capital "
-                           "characters."))))
-
     MAPPING = {
-        'always': usertypes.IgnoreCase.always,
-        'never': usertypes.IgnoreCase.never,
-        'smart': usertypes.IgnoreCase.smart,
+        'always': (usertypes.IgnoreCase.always, "Search case-insensitively."),
+        'never': (usertypes.IgnoreCase.never, "Search case-sensitively."),
+        'smart': (
+            usertypes.IgnoreCase.smart,
+            "Search case-sensitively if there are capital characters."
+        ),
     }
 
 
@@ -1172,50 +1159,11 @@ class FontBase(BaseType):
 
         If the given family value (fonts.default_family in the config) is
         unset, a system-specific default monospace font is used.
-
-        Note that (at least) three ways of getting the default monospace font
-        exist:
-
-        1) f = QFont()
-           f.setStyleHint(QFont.Monospace)
-           print(f.defaultFamily())
-
-        2) f = QFont()
-           f.setStyleHint(QFont.TypeWriter)
-           print(f.defaultFamily())
-
-        3) f = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-           print(f.family())
-
-        They yield different results depending on the OS:
-
-                   QFont.Monospace  | QFont.TypeWriter    | QFontDatabase
-                   ------------------------------------------------------
-        Windows:   Courier New      | Courier New         | Courier New
-        Linux:     DejaVu Sans Mono | DejaVu Sans Mono    | monospace
-        macOS:     Menlo            | American Typewriter | Monaco
-
-        Test script: https://p.cmpl.cc/d4dfe573
-
-        On Linux, it seems like both actually resolve to the same font.
-
-        On macOS, "American Typewriter" looks like it indeed tries to imitate a
-        typewriter, so it's not really a suitable UI font.
-
-        Looking at those Wikipedia articles:
-
-        https://en.wikipedia.org/wiki/Monaco_(typeface)
-        https://en.wikipedia.org/wiki/Menlo_(typeface)
-
-        the "right" choice isn't really obvious. Thus, let's go for the
-        QFontDatabase approach here, since it's by far the simplest one.
         """
         if default_family:
             families = configutils.FontFamilies(default_family)
         else:
-            assert QApplication.instance() is not None
-            font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-            families = configutils.FontFamilies([font.family()])
+            families = configutils.FontFamilies.from_system_default()
 
         cls.default_family = families.to_str(quote=True)
         cls.default_size = default_size
@@ -1753,16 +1701,11 @@ class Position(MappingType):
     """The position of the tab bar."""
 
     MAPPING = {
-        'top': QTabWidget.North,
-        'bottom': QTabWidget.South,
-        'left': QTabWidget.West,
-        'right': QTabWidget.East,
+        'top': (QTabWidget.North, None),
+        'bottom': (QTabWidget.South, None),
+        'left': (QTabWidget.West, None),
+        'right': (QTabWidget.East, None),
     }
-
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(
-            none_ok,
-            valid_values=ValidValues('top', 'bottom', 'left', 'right'))
 
 
 class TextAlignment(MappingType):
@@ -1770,15 +1713,10 @@ class TextAlignment(MappingType):
     """Alignment of text."""
 
     MAPPING = {
-        'left': Qt.AlignLeft,
-        'right': Qt.AlignRight,
-        'center': Qt.AlignCenter,
+        'left': (Qt.AlignLeft, None),
+        'right': (Qt.AlignRight, None),
+        'center': (Qt.AlignCenter, None),
     }
-
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(
-            none_ok,
-            valid_values=ValidValues('left', 'right', 'center'))
 
 
 class VerticalPosition(String):
@@ -1828,20 +1766,21 @@ class SelectOnRemove(MappingType):
     """Which tab to select when the focused tab is removed."""
 
     MAPPING = {
-        'prev': QTabBar.SelectLeftTab,
-        'next': QTabBar.SelectRightTab,
-        'last-used': QTabBar.SelectPreviousTab,
+        'prev': (
+            QTabBar.SelectLeftTab,
+            ("Select the tab which came before the closed one "
+             "(left in horizontal, above in vertical)."),
+        ),
+        'next': (
+            QTabBar.SelectRightTab,
+            ("Select the tab which came after the closed one "
+             "(right in horizontal, below in vertical)."),
+        ),
+        'last-used': (
+            QTabBar.SelectPreviousTab,
+            "Select the previously selected tab.",
+        ),
     }
-
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(
-            none_ok,
-            valid_values=ValidValues(
-                ('prev', "Select the tab which came before the closed one "
-                 "(left in horizontal, above in vertical)."),
-                ('next', "Select the tab which came after the closed one "
-                 "(right in horizontal, below in vertical)."),
-                ('last-used', "Select the previously selected tab.")))
 
 
 class ConfirmQuit(FlagList):

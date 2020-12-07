@@ -20,7 +20,6 @@
 """Base class for a subprocess run for tests."""
 
 import re
-import os
 import time
 import warnings
 
@@ -101,7 +100,7 @@ def pytest_runtest_makereport(item, call):
         return
 
     quteproc_log = getattr(item, '_quteproc_log', None)
-    server_log = getattr(item, '_server_log', None)
+    server_logs = getattr(item, '_server_logs', [])
 
     if not hasattr(report.longrepr, 'addsection'):
         # In some conditions (on macOS and Windows it seems), report.longrepr
@@ -114,11 +113,11 @@ def pytest_runtest_makereport(item, call):
 
     verbose = item.config.getoption('--verbose')
     if quteproc_log is not None:
-        report.longrepr.addsection("qutebrowser output",
-                                   _render_log(quteproc_log, verbose=verbose))
-    if server_log is not None:
-        report.longrepr.addsection("server output",
-                                   _render_log(server_log, verbose=verbose))
+        report.longrepr.addsection(
+            "qutebrowser output", _render_log(quteproc_log, verbose=verbose))
+    for name, content in server_logs:
+        report.longrepr.addsection(
+            f"{name} output", _render_log(content, verbose=verbose))
 
 
 class Process(QObject):
@@ -234,7 +233,7 @@ class Process(QObject):
         self._started = True
         verbose = self.request.config.getoption('--verbose')
 
-        timeout = 60 if 'CI' in os.environ else 20
+        timeout = 60 if utils.ON_CI else 20
         for _ in range(timeout):
             with self._wait_signal(self.ready, timeout=1000,
                                    raising=False) as blocker:
@@ -476,7 +475,7 @@ class Process(QObject):
         if timeout is None:
             if do_skip:
                 timeout = 2000
-            elif 'CI' in os.environ:
+            elif utils.ON_CI:
                 timeout = 15000
             else:
                 timeout = 5000

@@ -32,6 +32,26 @@ def patch_backend(monkeypatch):
     monkeypatch.setattr(objects, 'backend', usertypes.Backend.QtWebEngine)
 
 
+@pytest.mark.parametrize('qversion, enabled, expected', [
+    # Disabled or nothing set
+    ("5.14", False, []),
+    ("5.15.0", False, []),
+    ("5.15.1", False, []),
+    ("5.15.2", False, []),
+
+    # Enabled in configuration
+    ("5.14", True, []),
+    ("5.15.0", True, []),
+    ("5.15.1", True, []),
+    ("5.15.2", True, [("preferredColorScheme", "1")]),
+])
+@utils.qt514
+def test_colorscheme(config_stub, monkeypatch, qversion, enabled, expected):
+    monkeypatch.setattr(darkmode.qtutils, 'qVersion', lambda: qversion)
+    config_stub.val.colors.webpage.prefers_color_scheme_dark = enabled
+    assert list(darkmode.settings()) == expected
+
+
 @pytest.mark.parametrize('settings, expected', [
     # Disabled
     ({}, []),
@@ -167,6 +187,22 @@ def test_variant(monkeypatch, qversion, webengine_version, expected):
     monkeypatch.setattr(darkmode.qtutils, 'qVersion', lambda: qversion)
     monkeypatch.setattr(darkmode, 'PYQT_WEBENGINE_VERSION', webengine_version)
     assert darkmode._variant() == expected
+
+
+@pytest.mark.parametrize('value, is_valid, expected', [
+    ('invalid_value', False, darkmode.Variant.qt_515_0),
+    ('qt_515_2', True, darkmode.Variant.qt_515_2),
+])
+def test_variant_override(monkeypatch, caplog, value, is_valid, expected):
+    monkeypatch.setattr(darkmode.qtutils, 'qVersion', lambda: None)
+    monkeypatch.setattr(darkmode, 'PYQT_WEBENGINE_VERSION', 0x050f00)
+    monkeypatch.setenv('QUTE_DARKMODE_VARIANT', value)
+
+    with caplog.at_level(logging.WARNING):
+        assert darkmode._variant() == expected
+
+    log_msg = 'Ignoring invalid QUTE_DARKMODE_VARIANT=invalid_value'
+    assert (log_msg in caplog.messages) != is_valid
 
 
 def test_broken_smart_images_policy(config_stub, monkeypatch, caplog):

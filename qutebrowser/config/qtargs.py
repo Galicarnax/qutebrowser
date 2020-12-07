@@ -109,6 +109,16 @@ def _qtwebengine_enabled_features(feature_flags: Sequence[str]) -> Iterator[str]
         if config.val.scrolling.bar == 'overlay':
             yield 'OverlayScrollbar'
 
+    if (qtutils.version_check('5.14', compiled=False) and
+            config.val.content.headers.referer == 'same-domain'):
+        # Handling of reduced-referrer-granularity in Chromium 76+
+        # https://chromium-review.googlesource.com/c/chromium/src/+/1572699
+        #
+        # Note that this is removed entirely (and apparently the default) starting with
+        # Chromium 89 (Qt 5.15.x or 6.x):
+        # https://chromium-review.googlesource.com/c/chromium/src/+/2545444
+        yield 'ReducedReferrerGranularity'
+
 
 def _qtwebengine_args(
         namespace: argparse.Namespace,
@@ -145,8 +155,7 @@ def _qtwebengine_args(
     from qutebrowser.browser.webengine import darkmode
     blink_settings = list(darkmode.settings())
     if blink_settings:
-        yield '--blink-settings=' + ','.join('{}={}'.format(k, v)
-                                             for k, v in blink_settings)
+        yield '--blink-settings=' + ','.join(f'{k}={v}' for k, v in blink_settings)
 
     enabled_features = list(_qtwebengine_enabled_features(feature_flags))
     if enabled_features:
@@ -191,16 +200,32 @@ def _qtwebengine_settings_args() -> Iterator[str]:
         },
         'content.headers.referer': {
             'always': None,
-            'never': '--no-referrers',
-            'same-domain': '--reduced-referrer-granularity',
         }
     }
 
-    if qtutils.version_check('5.14'):
+    if (qtutils.version_check('5.14', compiled=False) and
+            not qtutils.version_check('5.15.2', compiled=False)):
+        # In Qt 5.14 to 5.15.1, `--force-dark-mode` is used to set the
+        # preferred colorscheme. In Qt 5.15.2, this is handled by a
+        # blink-setting instead.
         settings['colors.webpage.prefers_color_scheme_dark'] = {
             True: '--force-dark-mode',
             False: None,
         }
+
+    referrer_setting = settings['content.headers.referer']
+    if qtutils.version_check('5.14', compiled=False):
+        # Starting with Qt 5.14, this is handled via --enable-features
+        referrer_setting['same-domain'] = None
+    else:
+        referrer_setting['same-domain'] = '--reduced-referrer-granularity'
+
+    can_override_referer = (
+        qtutils.version_check('5.12.4', compiled=False) and
+        not qtutils.version_check('5.13.0', compiled=False, exact=True)
+    )
+    # WORKAROUND for https://bugreports.qt.io/browse/QTBUG-60203
+    referrer_setting['never'] = None if can_override_referer else '--no-referrers'
 
     for setting, args in sorted(settings.items()):
         arg = args[config.instance.get(setting)]
