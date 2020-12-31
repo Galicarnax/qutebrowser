@@ -73,6 +73,7 @@ Prefix changed to "forceDarkMode".
 - As with Qt 5.15.0 / .1, but with "forceDarkMode" as prefix.
 """
 
+import os
 import enum
 from typing import Any, Iterable, Iterator, Mapping, Optional, Set, Tuple, Union
 
@@ -90,7 +91,6 @@ class Variant(enum.Enum):
 
     """A dark mode variant."""
 
-    unavailable = enum.auto()
     qt_511_to_513 = enum.auto()
     qt_514 = enum.auto()
     qt_515_0 = enum.auto()
@@ -135,7 +135,7 @@ _DarkModeSettingsType = Iterable[
     Tuple[
         str,  # qutebrowser option name
         str,  # darkmode setting name
-        # Mapping from the config value to a string (or something convertable
+        # Mapping from the config value to a string (or something convertible
         # to a string) which gets passed to Chromium.
         Optional[Mapping[Any, Union[str, int]]],
     ],
@@ -159,8 +159,6 @@ _QT_514_SETTINGS = [
 # workaround warning below if the setting wasn't explicitly customized.
 
 _DARK_MODE_DEFINITIONS: Mapping[Variant, _DarkModeDefinitionType] = {
-    Variant.unavailable: ([], set()),
-
     Variant.qt_515_2: ([
         # 'darkMode' renamed to 'forceDarkMode'
         ('enabled', 'forceDarkModeEnabled', _BOOLS),
@@ -235,6 +233,13 @@ _DARK_MODE_DEFINITIONS: Mapping[Variant, _DarkModeDefinitionType] = {
 
 def _variant() -> Variant:
     """Get the dark mode variant based on the underlying Qt version."""
+    env_var = os.environ.get('QUTE_DARKMODE_VARIANT')
+    if env_var is not None:
+        try:
+            return Variant[env_var]
+        except KeyError:
+            log.init.warning(f"Ignoring invalid QUTE_DARKMODE_VARIANT={env_var}")
+
     if PYQT_WEBENGINE_VERSION is not None:
         # Available with Qt >= 5.13
         if PYQT_WEBENGINE_VERSION >= 0x050f02:
@@ -259,6 +264,16 @@ def _variant() -> Variant:
 
 def settings() -> Iterator[Tuple[str, str]]:
     """Get necessary blink settings to configure dark mode for QtWebEngine."""
+    if (qtutils.version_check('5.15.2', compiled=False) and
+            config.val.colors.webpage.prefers_color_scheme_dark):
+        # With older Qt versions, this is passed in qtargs.py as --force-dark-mode
+        # instead.
+        #
+        # With Chromium 85 (> Qt 5.15.2), the enumeration has changed in Blink and this
+        # will need to be set to '0' instead:
+        # https://chromium-review.googlesource.com/c/chromium/src/+/2232922
+        yield "preferredColorScheme", "1"
+
     if not config.val.colors.webpage.darkmode.enabled:
         return
 

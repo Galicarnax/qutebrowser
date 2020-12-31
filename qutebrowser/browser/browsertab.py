@@ -83,15 +83,6 @@ def create(win_id: int,
                      parent=parent)
 
 
-def init() -> None:
-    """Initialize backend-specific modules."""
-    if objects.backend == usertypes.Backend.QtWebEngine:
-        from qutebrowser.browser.webengine import webenginetab
-        webenginetab.init()
-        return
-    assert objects.backend == usertypes.Backend.QtWebKit, objects.backend
-
-
 class WebTabError(Exception):
 
     """Base class for various errors."""
@@ -1180,6 +1171,14 @@ class AbstractTab(QWidget):
     def set_pinned(self, pinned: bool) -> None:
         self.data.pinned = pinned
         self.pinned_changed.emit(pinned)
+
+    def renderer_process_pid(self) -> Optional[int]:
+        """Get the PID of the underlying renderer process.
+
+        Returns None if the PID can't be determined or if getting the PID isn't
+        supported.
+        """
+        raise NotImplementedError
 
     def __repr__(self) -> str:
         try:

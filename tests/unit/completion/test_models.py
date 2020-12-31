@@ -26,6 +26,8 @@ import time
 from datetime import datetime
 from unittest import mock
 
+import hypothesis
+import hypothesis.strategies
 import pytest
 from PyQt5.QtCore import QUrl, QDateTime
 try:
@@ -37,7 +39,8 @@ except ImportError:
 
 from qutebrowser.misc import objects
 from qutebrowser.completion import completer
-from qutebrowser.completion.models import miscmodels, urlmodel, configmodel
+from qutebrowser.completion.models import (
+    miscmodels, urlmodel, configmodel, listcategory)
 from qutebrowser.config import configdata, configtypes
 from qutebrowser.utils import usertypes
 from qutebrowser.mainwindow import tabbedbrowser
@@ -1324,3 +1327,34 @@ def test_undo_completion(tabbed_browser_stubs, info):
              "2020-01-01 00:00"),
         ],
     })
+
+
+def undo_completion_retains_sort_order(tabbed_browser_stubs, info):
+    """Test :undo completion sort order with > 10 entries."""
+    created_dt = datetime(2020, 1, 1)
+    created_str = "2020-01-02 00:00"
+
+    tabbed_browser_stubs[0].undo_stack = [
+        tabbedbrowser._UndoEntry(
+            url=QUrl(f'https://example.org/{idx}'),
+            history=None, index=None, pinned=None,
+            created_at=created_dt,
+        )
+        for idx in range(1, 11)
+    ]
+
+    model = miscmodels.undo(info=info)
+    model.set_pattern('')
+
+    expected = [
+        (str(idx), f'https://example.org/{idx}', created_str)
+        for idx in range(1, 11)
+    ]
+    _check_completions(model, {"Closed tabs": expected})
+
+
+@hypothesis.given(text=hypothesis.strategies.text())
+def test_listcategory_hypothesis(text):
+    """Make sure we can't produce invalid patterns."""
+    cat = listcategory.ListCategory("test", [])
+    cat.set_pattern(text)

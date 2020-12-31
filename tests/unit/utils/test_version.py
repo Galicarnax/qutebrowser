@@ -544,7 +544,7 @@ class ImportFake:
 
     Attributes:
         modules: A dict mapping module names to bools. If True, the import will
-                 success. Otherwise, it'll fail with ImportError.
+                 succeed. Otherwise, it'll fail with ImportError.
         version_attribute: The name to use in the fake modules for the version
                            attribute.
         version: The version to use for the modules.
@@ -553,22 +553,8 @@ class ImportFake:
     """
 
     def __init__(self):
-        self.modules = collections.OrderedDict([
-            ('sip', True),
-            ('colorama', True),
-            ('pypeg2', True),
-            ('jinja2', True),
-            ('pygments', True),
-            ('yaml', True),
-            ('attr', True),
-            ('PyQt5.QtWebEngineWidgets', True),
-            ('PyQt5.QtWebEngine', True),
-            ('PyQt5.QtWebKitWidgets', True),
-        ])
-        self.no_version_attribute = ['sip',
-                                     'PyQt5.QtWebEngineWidgets',
-                                     'PyQt5.QtWebKitWidgets',
-                                     'PyQt5.QtWebEngine']
+        self.modules = collections.OrderedDict(
+            [(mod, True) for mod in version.MODULE_INFO])
         self.version_attribute = '__version__'
         self.version = '1.2.3'
         self._real_import = builtins.__import__
@@ -621,13 +607,14 @@ def import_fake(monkeypatch):
 
 class TestModuleVersions:
 
-    """Tests for _module_versions()."""
+    """Tests for _module_versions() and ModuleInfo."""
 
     def test_all_present(self, import_fake):
         """Test with all modules present in version 1.2.3."""
         expected = []
         for name in import_fake.modules:
-            if name in import_fake.no_version_attribute:
+            version.MODULE_INFO[name]._reset_cache()
+            if '__version__' not in version.MODULE_INFO[name]._version_attributes:
                 expected.append('{}: yes'.format(name))
             else:
                 expected.append('{}: 1.2.3'.format(name))
@@ -635,6 +622,7 @@ class TestModuleVersions:
 
     @pytest.mark.parametrize('module, idx, expected', [
         ('colorama', 1, 'colorama: no'),
+        ('adblock', 6, 'adblock: no'),
     ])
     def test_missing_module(self, module, idx, expected, import_fake):
         """Test with a module missing.
@@ -645,7 +633,44 @@ class TestModuleVersions:
             expected: The expected text.
         """
         import_fake.modules[module] = False
+        # Needed after mocking the module
+        mod_info = version.MODULE_INFO[module]
+        mod_info._reset_cache()
+
         assert version._module_versions()[idx] == expected
+
+        for method_name, expected_result in [
+            ("is_installed", False),
+            ("is_usable", False),
+            ("get_version", None),
+            ("is_outdated", None)
+        ]:
+            method = getattr(mod_info, method_name)
+            # With hot cache
+            mod_info._initialize_info()
+            assert method() == expected_result
+            # With cold cache
+            mod_info._reset_cache()
+            assert method() == expected_result
+
+    def test_outdated_adblock(self, import_fake):
+        """Test that warning is shown when adblock module is outdated."""
+        mod_info = version.MODULE_INFO["adblock"]
+        fake_version = "0.1.0"
+
+        # Needed after mocking version attribute
+        mod_info._reset_cache()
+
+        assert mod_info.min_version is not None
+        assert fake_version < mod_info.min_version
+        import_fake.version = fake_version
+
+        assert mod_info.is_installed()
+        assert mod_info.is_outdated()
+        assert not mod_info.is_usable()
+
+        expected = f"adblock: {fake_version} (< {mod_info.min_version}, outdated)"
+        assert version._module_versions()[6] == expected
 
     @pytest.mark.parametrize('attribute, expected_modules', [
         ('VERSION', ['colorama']),
@@ -663,12 +688,22 @@ class TestModuleVersions:
             expected: The expected return value.
         """
         import_fake.version_attribute = attribute
+
+        for mod_info in version.MODULE_INFO.values():
+            # Invalidate the "version cache" since we just mocked some of the
+            # attributes.
+            mod_info._reset_cache()
+
         expected = []
         for name in import_fake.modules:
+            mod_info = version.MODULE_INFO[name]
             if name in expected_modules:
+                assert mod_info.get_version() == "1.2.3"
                 expected.append('{}: 1.2.3'.format(name))
             else:
+                assert mod_info.get_version() is None
                 expected.append('{}: yes'.format(name))
+
         assert version._module_versions() == expected
 
     @pytest.mark.parametrize('name, has_version', [
@@ -678,6 +713,7 @@ class TestModuleVersions:
         ('jinja2', True),
         ('pygments', True),
         ('yaml', True),
+        ('adblock', True),
         ('attr', True),
     ])
     def test_existing_attributes(self, name, has_version):
@@ -690,7 +726,7 @@ class TestModuleVersions:
             name: The name of the module to check.
             has_version: Whether a __version__ attribute is expected.
         """
-        module = importlib.import_module(name)
+        module = pytest.importorskip(name)
         assert hasattr(module, '__version__') == has_version
 
     def test_existing_sip_attribute(self):

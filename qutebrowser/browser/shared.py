@@ -82,7 +82,7 @@ def javascript_confirm(url, js_msg, abort_on):
         raise CallSuper
 
     msg = 'From <b>{}</b>:<br/>{}'.format(html.escape(url.toDisplayString()),
-                                          js_msg)
+                                          html.escape(js_msg))
     urlstr = url.toString(QUrl.RemovePassword | QUrl.FullyEncoded)
     ans = message.ask('Javascript confirm', msg,
                       mode=usertypes.PromptMode.yesno,
@@ -99,7 +99,7 @@ def javascript_prompt(url, js_msg, default, abort_on):
         return (False, "")
 
     msg = '<b>{}</b> asks:<br/>{}'.format(html.escape(url.toDisplayString()),
-                                          js_msg)
+                                          html.escape(js_msg))
     urlstr = url.toString(QUrl.RemovePassword | QUrl.FullyEncoded)
     answer = message.ask('Javascript prompt', msg,
                          mode=usertypes.PromptMode.text,
@@ -122,7 +122,7 @@ def javascript_alert(url, js_msg, abort_on):
         return
 
     msg = 'From <b>{}</b>:<br/>{}'.format(html.escape(url.toDisplayString()),
-                                          js_msg)
+                                          html.escape(js_msg))
     urlstr = url.toString(QUrl.RemovePassword | QUrl.FullyEncoded)
     message.ask('Javascript alert', msg, mode=usertypes.PromptMode.alert,
                 abort_on=abort_on, url=urlstr)
@@ -283,7 +283,7 @@ def get_user_stylesheet(searching=False):
             css += f.read()
 
     setting = config.val.scrolling.bar
-    if setting == 'overlay' and not utils.is_mac:
+    if setting == 'overlay' and utils.is_mac:
         setting = 'when-searching'
 
     if setting == 'never' or setting == 'when-searching' and not searching:
