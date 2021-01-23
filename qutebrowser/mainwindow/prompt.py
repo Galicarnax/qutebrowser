@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -23,9 +23,9 @@ import os.path
 import html
 import collections
 import functools
+import dataclasses
 from typing import Deque, MutableSequence, Optional, cast
 
-import attr
 from PyQt5.QtCore import (pyqtSlot, pyqtSignal, Qt, QTimer, QDir, QModelIndex,
                           QItemSelectionModel, QObject, QEventLoop)
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QVBoxLayout, QLineEdit,
@@ -43,13 +43,13 @@ from qutebrowser.utils import urlmatch
 prompt_queue = cast('PromptQueue', None)
 
 
-@attr.s
+@dataclasses.dataclass
 class AuthInfo:
 
     """Authentication info returned by a prompt."""
 
-    user = attr.ib()
-    password = attr.ib()
+    user: str
+    password: str
 
 
 class Error(Exception):
@@ -194,11 +194,11 @@ class PromptQueue(QObject):
             loop.destroyed.connect(lambda: self._loops.remove(loop))
             question.completed.connect(loop.quit)
             question.completed.connect(loop.deleteLater)
-            log.prompt.debug("Starting loop.exec_() for {}".format(question))
+            log.prompt.debug("Starting loop.exec() for {}".format(question))
             flags = cast(QEventLoop.ProcessEventsFlags,
                          QEventLoop.ExcludeSocketNotifiers)
-            loop.exec_(flags)
-            log.prompt.debug("Ending loop.exec_() for {}".format(question))
+            loop.exec(flags)
+            log.prompt.debug("Ending loop.exec() for {}".format(question))
 
             log.prompt.debug("Restoring old question {}".format(old_question))
             self._question = old_question
@@ -601,7 +601,7 @@ class LineEditPrompt(_BasePrompt):
         return True
 
     def _allowed_commands(self):
-        return [('prompt-accept', 'Accept'), ('leave-mode', 'Abort')]
+        return [('prompt-accept', 'Accept'), ('mode-leave', 'Abort')]
 
 
 class FilenamePrompt(_BasePrompt):
@@ -773,7 +773,7 @@ class FilenamePrompt(_BasePrompt):
         return idx
 
     def _allowed_commands(self):
-        return [('prompt-accept', 'Accept'), ('leave-mode', 'Abort')]
+        return [('prompt-accept', 'Accept'), ('mode-leave', 'Abort')]
 
 
 class DownloadFilenamePrompt(FilenamePrompt):
@@ -805,7 +805,7 @@ class DownloadFilenamePrompt(FilenamePrompt):
     def _allowed_commands(self):
         cmds = [
             ('prompt-accept', 'Accept'),
-            ('leave-mode', 'Abort'),
+            ('mode-leave', 'Abort'),
             ('prompt-open-download', "Open download"),
             ('prompt-open-download --pdfjs', "Open download via PDF.js"),
             ('prompt-yank', "Yank URL"),
@@ -869,7 +869,7 @@ class AuthenticationPrompt(_BasePrompt):
 
     def _allowed_commands(self):
         return [('prompt-accept', "Accept"),
-                ('leave-mode', "Abort")]
+                ('mode-leave', "Abort")]
 
 
 class YesNoPrompt(_BasePrompt):
@@ -931,7 +931,7 @@ class YesNoPrompt(_BasePrompt):
             default = 'yes' if self.question.default else 'no'
             cmds.append(('prompt-accept', "Use default ({})".format(default)))
 
-        cmds.append(('leave-mode', "Abort"))
+        cmds.append(('mode-leave', "Abort"))
         cmds.append(('prompt-yank', "Yank URL"))
         return cmds
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2015-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
 #
@@ -25,9 +25,8 @@ import os.path
 import sys
 import enum
 import subprocess
+import dataclasses
 from xml.etree import ElementTree
-
-import attr
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
                                 os.pardir))
@@ -36,14 +35,14 @@ from scripts import utils as scriptutils
 from qutebrowser.utils import utils
 
 
-@attr.s
+@dataclasses.dataclass
 class Message:
 
     """A message shown by coverage.py."""
 
-    typ = attr.ib()
-    filename = attr.ib()
-    text = attr.ib()
+    typ: str
+    filename: str
+    text: str
 
     def show(self):
         """Print this message."""
@@ -91,8 +90,6 @@ PERFECT_FILES = [
      'qutebrowser/browser/pdfjs.py'),
     ('tests/unit/browser/webkit/http/test_http.py',
      'qutebrowser/browser/webkit/http.py'),
-    ('tests/unit/browser/webkit/http/test_content_disposition.py',
-     'qutebrowser/browser/webkit/rfc6266.py'),
     # ('tests/unit/browser/webkit/test_webkitelem.py',
     #  'qutebrowser/browser/webkit/webkitelem.py'),
     # ('tests/unit/browser/webkit/test_webkitelem.py',
@@ -211,6 +208,8 @@ PERFECT_FILES = [
      'qutebrowser/completion/models/urlmodel.py'),
     ('tests/unit/completion/test_models.py',
      'qutebrowser/completion/models/configmodel.py'),
+    ('tests/unit/completion/test_models.py',
+     'qutebrowser/completion/models/filepathcategory.py'),
     ('tests/unit/completion/test_histcategory.py',
      'qutebrowser/completion/models/histcategory.py'),
     ('tests/unit/completion/test_listcategory.py',

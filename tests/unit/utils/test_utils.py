@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -867,3 +867,52 @@ def test_parse_duration_hypothesis(duration):
         utils.parse_duration(duration)
     except ValueError:
         pass
+
+
+@pytest.mark.parametrize('mimetype, extension', [
+    ('application/pdf', '.pdf'),  # handled by Python
+    ('text/plain', '.txt'),  # wrong in Python 3.6, overridden
+    ('application/manifest+json', '.webmanifest'),  # newer
+    ('text/xul', '.xul'),  # strict=False
+    ('doesnot/exist', None),
+])
+def test_mimetype_extension(mimetype, extension):
+    assert utils.mimetype_extension(mimetype) == extension
+
+
+class TestCleanupFileContext:
+
+    def test_no_file(self, tmp_path, caplog):
+        tmpfile = tmp_path / 'tmp.txt'
+        with caplog.at_level(logging.ERROR, 'misc'):
+            with utils.cleanup_file(tmpfile):
+                pass
+        assert len(caplog.messages) == 1
+        assert caplog.messages[0].startswith("Failed to delete tempfile")
+        assert not tmpfile.exists()
+
+    def test_no_error(self, tmp_path):
+        tmpfile = tmp_path / 'tmp.txt'
+        with tmpfile.open('w'):
+            pass
+        with utils.cleanup_file(tmpfile):
+            pass
+        assert not tmpfile.exists()
+
+    def test_error(self, tmp_path):
+        tmpfile = tmp_path / 'tmp.txt'
+        with tmpfile.open('w'):
+            pass
+        with pytest.raises(RuntimeError):
+            with utils.cleanup_file(tmpfile):
+                raise RuntimeError
+        assert not tmpfile.exists()
+
+    def test_directory(self, tmp_path, caplog):
+        assert tmp_path.is_dir()
+        # removal of file fails since it's a directory
+        with caplog.at_level(logging.ERROR, 'misc'):
+            with utils.cleanup_file(tmp_path):
+                pass
+        assert len(caplog.messages) == 1
+        assert caplog.messages[0].startswith("Failed to delete tempfile")

@@ -21,8 +21,25 @@ v2.0.0 (unreleased)
 Major changes
 ~~~~~~~~~~~~~
 
-- At least Python 3.6 is now required to run qutebrowser, support for Python
-  3.5 is dropped. Note that Python 3.5 is
+- Quick checklist for packagers:
+  * Ensure you're providing at least Python 3.6.1.
+  * Ensure you're providing at least Qt 5.12 and PyQt 5.12.
+  * Add a new optional dependency on the Python `adblock` library (if packaged -
+    if not, consider packaging it, albeit optional it's very useful for users).
+  * Remove the `cssutils` optional dependency (if present).
+  * Remove the `attrs` (`attr`) dependency.
+  * Remove the `pypeg2` dependency (and perhaps consider dropping the package
+    if not used elsewhere - it's https://fdik.org/pyPEG2/[inactive upstream]
+    and the repository was removed by Bitbucket).
+  * Move the `pygments` dependency from required to optional.
+  * TODO: Move the `setuptools` dependency from runtime (for `pkg_resources`) to
+    build-time.
+  * For Python 3.6, 3.7 or 3.8, add a dependency on the `importlib_resources`
+    backport.
+  * For Python 3.6 only, add a dependency on the `dataclasses` backport.
+  * TODO complete?
+- At least Python 3.6.1 is now required to run qutebrowser, support for Python
+  3.5 (and 3.6.0) is dropped. Note that Python 3.5 is
   https://www.python.org/downloads/release/python-3510/[no longer supported
   upstream] since September 2020.
 - At least Qt/PyQt 5.12 is now required to run qutebrowser, support for 5.7 to
@@ -37,19 +54,30 @@ Major changes
   with a newer version of Qt/PyQt.
 - New optional dependency on the Python `adblock` library, which is now used to
   integrate Brave's Rust adblocker library, if the `adblock` module is available.
-- Windows 7 is not supported anymore by the Windows binaries.
+  If it is unavailable, qutebrowser falls back to host-blocking, i.e. the same
+  blocking technique it used before this release.
 - The (formerly optional) `cssutils` dependency is now removed. It was only
   needed for improved behavior in corner cases when using `:download --mhtml`
   with the (non-default) QtWebKit backend, and as such it's unlikely anyone is
   still relying on it. The `cssutils` project is also dead upstream, with its
   repository being gone after Bitbucket
   https://bitbucket.org/blog/sunsetting-mercurial-support-in-bitbucket[removed Mercurial support].
+- The (formerly required) `pygments` dependency is now optional. It is only
+  used when using `:view-source` with QtWebKit, or when forcing it via
+  `:view-source --pygments` on QtWebEngine. If it is unavailable, an
+  unhighlighted fallback version of the page's source is shown.
 - TODO: The former dependency on the `pkg_resources` module (part of the
   `setuptools` project) got dropped.
 - A new dependency on the `importlib_resources` module got introduced for
   Python versions up to and including 3.8. Note that the stdlib
   `importlib.resources` module for Python 3.7 and 3.8 is missing the needed APIs,
   thus requiring the backports for those versions as well.
+- The former dependency on the `attrs`/`attr` package is now dropped.
+- On Python 3.6, a new dependency on the `dataclasses` backport is now required.
+- The former dependency on the `pypeg2` package is now dropped. This might cause
+  some changes for certain corner-cases for suggested filenames when downloading
+  files with the QtWebKit backend.
+- Windows 7 is not supported anymore by the Windows binaries.
 
 Removed
 ~~~~~~~
@@ -71,6 +99,12 @@ Added
 - New settings for the ABP-based adblocker:
    * `content.blocking.method` to decide which blocker(s) should be used.
    * `content.blocking.adblock.lists` to configure ABP-like lists to use.
+- New `qt.environ` setting which makes it easier to set/unset environment
+  variables for qutebrowser.
+- New settings to use an external file picker (such as ranger or vifm):
+  * `fileselect.handler` (`default` or `external`)
+  * `fileselect.multiple_files.command`
+  * `fileselect.single_file.command`
 - When QtWebEngine has been updated but PyQtWebEngine hasn't yet, the dark mode
   settings might stop working. As a (currently undocumented) escape hatch, this
   version adds a `QUTE_DARKMODE_VARIANT=qt_515_2` environment variable which can
@@ -78,11 +112,17 @@ Added
 - New `--desktop-file-name` commandline argument, which can be used to customize
   the desktop filename passed to Qt (which is used to set the `app_id` on
   Wayland).
+- The `:open` completion now also completes local file paths and `file://` URLs,
+  via a new `filesystem` entry in `completion.open_categories`. Also, a new
+  `completion.favorite_paths` setting was added which can be used to add paths to
+  show when `:open` is used without any input.
+- New `QUTE_VERSION` variable for userscripts, which can be used to read
+  qutebrowser's version.
 - New userscripts:
-  - `kodi` to play videos in Kodi
-  - `qr` to generate a QR code of the current URL
-  - `add-nextcloud-bookmarks` to create bookmarks in Nextcloud's Bookmarks app
-  - `add-nextcloud-cookbook` to add recipes to Nextcloud's Cookbook app
+  * `kodi` to play videos in Kodi
+  * `qr` to generate a QR code of the current URL
+  * `add-nextcloud-bookmarks` to create bookmarks in Nextcloud's Bookmarks app
+  * `add-nextcloud-cookbook` to add recipes to Nextcloud's Cookbook app
 
 Changed
 ~~~~~~~
@@ -90,6 +130,12 @@ Changed
 - `config.py` files now are required to have either
   `config.load_autoconfig(False)` (don't load `autoconfig.yml`) or
   `config.load_autoconfig()` (do load `autoconfig.yml`) in them.
+- On the first start, the history completion database is regenerated to remove
+  a few problematic entries (such as long `qute://pdfjs` URLs). This might take
+  a couple of minutes, but is a one-time operation.
+- qutebrowser now shows an error if its history database version is newer than
+  expected. This currently should never happen, but allows for potentially
+  backwards-incompatible changes in future versions.
 - (TODO) Windows and macOS releases now ship Python 3.9 rather than 3.7.
 - The `colors.webpage.darkmode.*` settings are now also supported with older Qt
   versions (Qt 5.12 and 5.13) rather than just with Qt 5.14 and above.
@@ -128,6 +174,36 @@ Changed
   set from JavaScript, as it would be if `content.headers.custom` wasn't set.
 - The `:buffer` completion now shows the underlying renderer process PID if
   doing so is supported (QtWebEngine 5.15).
+- If `tabs.favicons.show` is set to `never`, favicons aren't unnecessarily
+  downloaded anymore.
+- Renamed commands:
+  * `run-macro` -> `macro-run`
+  * `record-macro` -> `macro-record`
+  * `buffer` -> `tab-select`
+  * `open-editor` -> `edit-text`
+  * `toggle-selection` -> `selection-toggle`
+  * `drop-selection` -> `selection-drop`
+  * `reverse-selection` -> `selection-reverse`
+  * `follow-selected` -> `selection-follow`
+  * `follow-hint` -> `hint-follow`
+  * `enter-mode` -> `mode-enter`
+  * `leave-mode` -> `mode-leave`
+- Changes to defailt settings:
+  * `tabs.background` is now `true` by default, so that new tabs get opened in the
+    background.
+  * `input.partial_timeout` is now set to 0 by default, so that partially typed
+    key strings are never cleared.
+  * `hints.leave_on_load` is now `false` by default, so that hint mode doesn't get
+    left when a page finishes loading. This can lead to stale hints persisting in
+    rare circumstances, but is better than leaving hint mode when the user entered
+    it before loading was completed.
+  * The default for `tabs.width` (tab bar width if vertical) is now 15% of the
+    window width rather than 20%.
+  * The default bindings for moving tabs (`tab-move -` and `tab-move +`) were
+    changed from `gl` and `gr` to `gK` and `gJ`, to be consistent with the tab
+    switching bindings.
+- "Super" is now understood as a modifier (i.e. as alias to "Meta")
+- Various performance improvements, including for the startup time.
 
 Fixed
 ~~~~~
@@ -141,10 +217,24 @@ Fixed
     * `qute-lastpass` now types multiple `<` or `>` characters correctly.
 - The `:undo` completion now sorts its entries correctly (by the numerical index
   rather than lexicographically).
-- TODO: Due to a long-standing bug in the `pkg_resources` dependency, it caused
-  qutebrowser's startup to slow down by around 150ms-1s (heavily depending on
-  the system). Since the dependency is now removed, qutebrowser's startup time
-  thus improved.
+- The `completion.web_history.ignore` setting now works properly when set in
+  `config.py` (rather than via `:set`). Additionally, a `:config-source` will not
+  result in a history rebuild if the value wasn't actually changed.
+- When downloading a `data:` URL, the suggested filename is now improved and
+  contains a proper extension. Before this fix, qutebrowser would use the URL's
+  data contents as filename with QtWebEngine; or "binary blob" with the Qt network
+  stack.
+- When `:tab-only` is run before a tab is available, an error is now shown
+  instead of crashing.
+- A couple of long URLs (such as `qute://pdfjs` URLs) are now not added to the
+  history database anymore.
+- A bug in QtWebEngine 5.15.2 causes "renderer process killed" errors on
+  websites like LinkedIn and TradingView. There is now a workaround in qutebrowser
+  to prevent this from happening.
+- Nextcloud Calendars started using `String.replaceAll` which was only added to
+  Chromium recently (Chrome 85), so won't work with current QtWebEngine
+  versions. This release includes a workaround (a polyfill as a
+  site-specific-quirk).
 
 v1.14.1 (2020-12-04)
 --------------------

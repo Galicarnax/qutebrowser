@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -50,10 +50,10 @@ import itertools
 import functools
 import operator
 import json
+import dataclasses
 from typing import (Any, Callable, Dict as DictType, Iterable, Iterator,
                     List as ListType, Optional, Pattern, Sequence, Tuple, Union)
 
-import attr
 import yaml
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QColor
@@ -148,13 +148,19 @@ class BaseType:
 
     Attributes:
         none_ok: Whether to allow None (or an empty string for :set) as value.
+        _completions: Override for completions for the given setting.
 
     Class attributes:
         valid_values: Possible values if they can be expressed as a fixed
                       string. ValidValues instance.
     """
 
-    def __init__(self, none_ok: bool = False) -> None:
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        self._completions = completions
         self.none_ok = none_ok
         self.valid_values: Optional[ValidValues] = None
 
@@ -313,7 +319,9 @@ class BaseType:
         Return:
             A list of (value, description) tuples or None.
         """
-        if self.valid_values is None:
+        if self._completions is not None:
+            return self._completions
+        elif self.valid_values is None:
             return None
         return [
             (val, self.valid_values.descriptions.get(val, ""))
@@ -321,7 +329,7 @@ class BaseType:
         ]
 
     def __repr__(self) -> str:
-        return utils.get_repr(self, none_ok=self.none_ok)
+        return utils.get_repr(self, none_ok=self.none_ok, completions=self._completions)
 
 
 class MappingType(BaseType):
@@ -334,8 +342,12 @@ class MappingType(BaseType):
 
     MAPPING: DictType[str, Tuple[Any, Optional[str]]] = {}
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues(
             *[(key, doc) for (key, (_val, doc)) in self.MAPPING.items()])
 
@@ -368,12 +380,18 @@ class String(BaseType):
         completions: completions to be used, or None
     """
 
-    def __init__(self, *, minlen: int = None, maxlen: int = None,
-                 forbidden: str = None, regex: str = None,
-                 encoding: str = None, none_ok: bool = False,
-                 completions: _Completions = None,
-                 valid_values: ValidValues = None) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            minlen: int = None,
+            maxlen: int = None,
+            forbidden: str = None,
+            regex: str = None,
+            encoding: str = None,
+            none_ok: bool = False,
+            completions: _Completions = None,
+            valid_values: ValidValues = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = valid_values
 
         if minlen is not None and minlen < 1:
@@ -386,7 +404,6 @@ class String(BaseType):
         self.minlen = minlen
         self.maxlen = maxlen
         self.forbidden = forbidden
-        self._completions = completions
         self.encoding = encoding
         self.regex = regex
 
@@ -434,12 +451,6 @@ class String(BaseType):
 
         return value
 
-    def complete(self) -> _Completions:
-        if self._completions is not None:
-            return self._completions
-        else:
-            return super().complete()
-
     def __repr__(self) -> str:
         return utils.get_repr(self, none_ok=self.none_ok,
                               valid_values=self.valid_values,
@@ -477,10 +488,15 @@ class List(BaseType):
 
     _show_valtype = True
 
-    def __init__(self, valtype: BaseType,
-                 none_ok: bool = False,
-                 length: int = None) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self,
+            valtype: BaseType,
+            *,
+            length: int = None,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valtype = valtype
         self.length = length
 
@@ -569,12 +585,17 @@ class ListOrValue(BaseType):
 
     _show_valtype = True
 
-    def __init__(self, valtype: BaseType, *,
-                 none_ok: bool = False,
-                 **kwargs: Any) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self,
+            valtype: BaseType,
+            *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+            **kwargs: Any,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         assert not isinstance(valtype, (List, ListOrValue)), valtype
-        self.listtype = List(valtype, none_ok=none_ok, **kwargs)
+        self.listtype = List(valtype=valtype, none_ok=none_ok, **kwargs)
         self.valtype = valtype
 
     def _val_and_type(self, value: Any) -> Tuple[Any, BaseType]:
@@ -643,10 +664,19 @@ class FlagList(List):
 
     _show_valtype = False
 
-    def __init__(self, none_ok: bool = False,
-                 valid_values: ValidValues = None,
-                 length: int = None) -> None:
-        super().__init__(valtype=String(), none_ok=none_ok, length=length)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+            valid_values: ValidValues = None,
+            length: int = None,
+    ) -> None:
+        super().__init__(
+            valtype=String(),
+            none_ok=none_ok,
+            length=length,
+            completions=completions,
+        )
         self.valtype.valid_values = valid_values
 
     def _check_duplicates(self, values: ListType) -> None:
@@ -664,6 +694,9 @@ class FlagList(List):
         return vals
 
     def complete(self) -> _Completions:
+        if self._completions is not None:
+            return self._completions
+
         valid_values = self.valtype.valid_values
         if valid_values is None:
             return None
@@ -697,8 +730,12 @@ class Bool(BaseType):
     while `0`, `no`, `off` and `false` count as false (case-insensitive).
     """
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues('true', 'false', generate_docs=False)
 
     def to_py(self, value: Union[bool, str, None]) -> Optional[bool]:
@@ -729,8 +766,12 @@ class BoolAsk(Bool):
 
     """Like `Bool`, but `ask` is allowed as additional value."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues('true', 'false', 'ask')
 
     def to_py(self,  # type: ignore[override]
@@ -768,11 +809,15 @@ class _Numeric(BaseType):  # pylint: disable=abstract-method
         maxval: Maximum value (inclusive).
     """
 
-    def __init__(self, minval: int = None,
-                 maxval: int = None,
-                 zero_ok: bool = True,
-                 none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            minval: int = None,
+            maxval: int = None,
+            zero_ok: bool = True,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.minval = self._parse_bound(minval)
         self.maxval = self._parse_bound(maxval)
         self.zero_ok = zero_ok
@@ -912,10 +957,21 @@ class PercOrInt(_Numeric):
         maxint: Maximum value for integer (inclusive).
     """
 
-    def __init__(self, minperc: int = None, maxperc: int = None,
-                 minint: int = None, maxint: int = None,
-                 none_ok: bool = False) -> None:
-        super().__init__(minval=minint, maxval=maxint, none_ok=none_ok)
+    def __init__(
+            self, *,
+            minperc: int = None,
+            maxperc: int = None,
+            minint: int = None,
+            maxint: int = None,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(
+            minval=minint,
+            maxval=maxint,
+            none_ok=none_ok,
+            completions=completions,
+        )
         self.minperc = self._parse_bound(minperc)
         self.maxperc = self._parse_bound(maxperc)
         if (self.maxperc is not None and self.minperc is not None and
@@ -986,6 +1042,9 @@ class Command(BaseType):
     """
 
     def complete(self) -> _Completions:
+        if self._completions is not None:
+            return self._completions
+
         out = []
         for cmdname, obj in objects.commands.items():
             out.append((cmdname, obj.desc))
@@ -1239,9 +1298,13 @@ class Regex(BaseType):
         _regex_type: The Python type of a regex object.
     """
 
-    def __init__(self, flags: str = None,
-                 none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            flags: str = None,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self._regex_type = type(re.compile(''))
         # Parse flags from configdata.yml
         if flags is None:
@@ -1305,12 +1368,16 @@ class Dict(BaseType):
     When setting from a string, pass a json-like dict, e.g. `{"key", "value"}`.
     """
 
-    def __init__(self, keytype: Union[String, 'Key'],
-                 valtype: BaseType, *,
-                 fixed_keys: Iterable = None,
-                 required_keys: Iterable = None,
-                 none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            keytype: Union[String, 'Key'],
+            valtype: BaseType,
+            fixed_keys: Iterable = None,
+            required_keys: Iterable = None,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         # If the keytype is not a string, we'll get problems with showing it as
         # json in to_str() as json converts keys to strings.
         assert isinstance(keytype, (String, Key)), keytype
@@ -1409,8 +1476,13 @@ class File(BaseType):
 
     """A file on the local filesystem."""
 
-    def __init__(self, required: bool = True, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+            self, *,
+            required: bool = True,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.required = required
 
     def to_py(self, value: _StrUnset) -> _StrUnsetNone:
@@ -1475,10 +1547,14 @@ class FormatString(BaseType):
         completions: completions to be used, or None
     """
 
-    def __init__(self, fields: Iterable[str],
-                 none_ok: bool = False,
-                 completions: _Completions = None) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            fields: Iterable[str],
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(
+            none_ok=none_ok, completions=completions)
         self.fields = fields
         self._completions = completions
 
@@ -1499,12 +1575,6 @@ class FormatString(BaseType):
 
         return value
 
-    def complete(self) -> _Completions:
-        if self._completions is not None:
-            return self._completions
-        else:
-            return super().complete()
-
     def __repr__(self) -> str:
         return utils.get_repr(self, none_ok=self.none_ok, fields=self.fields)
 
@@ -1521,9 +1591,13 @@ class ShellCommand(List):
 
     _show_valtype = False
 
-    def __init__(self, placeholder: bool = False,
-                 none_ok: bool = False) -> None:
-        super().__init__(valtype=String(), none_ok=none_ok)
+    def __init__(
+            self, *,
+            placeholder: bool = False,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(valtype=String(), none_ok=none_ok, completions=completions)
         self.placeholder = placeholder
 
     def to_py(
@@ -1553,8 +1627,12 @@ class Proxy(BaseType):
 
     """A proxy URL, or `system`/`none`."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues(
             ('system', "Use the system wide proxy."),
             ('none', "Don't use any proxy"))
@@ -1586,6 +1664,9 @@ class Proxy(BaseType):
             raise configexc.ValidationError(value, e)
 
     def complete(self) -> _Completions:
+        if self._completions is not None:
+            return self._completions
+
         assert self.valid_values is not None
         out = []
         for val in self.valid_values:
@@ -1645,15 +1726,15 @@ class FuzzyUrl(BaseType):
             raise configexc.ValidationError(value, str(e))
 
 
-@attr.s
+@dataclasses.dataclass
 class PaddingValues:
 
     """Four padding values."""
 
-    top: int = attr.ib()
-    bottom: int = attr.ib()
-    left: int = attr.ib()
-    right: int = attr.ib()
+    top: int
+    bottom: int
+    left: int
+    right: int
 
 
 class Padding(Dict):
@@ -1662,11 +1743,18 @@ class Padding(Dict):
 
     _show_valtype = False
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(keytype=String(),
-                         valtype=Int(minval=0, none_ok=none_ok),
-                         fixed_keys=['top', 'bottom', 'left', 'right'],
-                         none_ok=none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(
+            keytype=String(),
+            valtype=Int(minval=0, none_ok=none_ok),
+            fixed_keys=['top', 'bottom', 'left', 'right'],
+            none_ok=none_ok,
+            completions=completions
+        )
 
     def to_py(  # type: ignore[override]
             self,
@@ -1723,8 +1811,12 @@ class VerticalPosition(String):
 
     """The position of the download bar."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok=none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues('top', 'bottom')
 
 
@@ -1790,8 +1882,12 @@ class ConfirmQuit(FlagList):
     # Values that can be combined with commas
     combinable_values = ('multiple-tabs', 'downloads')
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valtype.none_ok = none_ok
         self.valtype.valid_values = ValidValues(
             ('always', "Always show a confirmation."),
@@ -1827,8 +1923,12 @@ class NewTabPosition(String):
 
     """How new tabs are positioned."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok=none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues(
             ('prev', "Before the current tab."),
             ('next', "After the current tab."),
@@ -1840,8 +1940,12 @@ class LogLevel(String):
 
     """A logging level."""
 
-    def __init__(self, none_ok: bool = False) -> None:
-        super().__init__(none_ok=none_ok)
+    def __init__(
+            self, *,
+            none_ok: bool = False,
+            completions: _Completions = None,
+    ) -> None:
+        super().__init__(none_ok=none_ok, completions=completions)
         self.valid_values = ValidValues(*[level.lower()
                                           for level in log.LOG_LEVELS])
 

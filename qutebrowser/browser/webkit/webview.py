@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -179,7 +179,7 @@ class WebView(QWebView):
         self.shutting_down.connect(menu.close)
         mm = modeman.instance(self.win_id)
         mm.entered.connect(menu.close)
-        menu.exec_(e.globalPos())
+        menu.exec(e.globalPos())
 
     def showEvent(self, e):
         """Extend showEvent to set the page visibility state to visible.

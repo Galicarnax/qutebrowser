@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -39,7 +39,11 @@ class _ReadlineBridge:
 
     def _widget(self) -> Optional[QLineEdit]:
         """Get the currently active QLineEdit."""
-        w = QApplication.instance().focusWidget()
+        # FIXME add this to api.utils or so
+        qapp = QApplication.instance()
+        assert qapp is not None
+        w = qapp.focusWidget()
+
         if isinstance(w, QLineEdit):
             return w
         else:

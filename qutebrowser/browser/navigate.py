@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -174,9 +174,7 @@ def _find_prevnext(prev, elems):
     if not elems:
         return None
 
-    # pylint: disable=bad-config-option
     for regex in getattr(config.val.hints, option):
-        # pylint: enable=bad-config-option
         log.hints.vdebug(  # type: ignore[attr-defined]
             "== Checking regex '{}'.".format(regex.pattern))
         for e in elems:

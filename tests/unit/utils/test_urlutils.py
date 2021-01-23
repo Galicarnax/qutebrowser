@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -21,9 +21,9 @@
 
 import os.path
 import logging
+import dataclasses
 import urllib.parse
 
-import attr
 from PyQt5.QtCore import QUrl
 from PyQt5.QtNetwork import QNetworkProxy
 import pytest
@@ -50,10 +50,10 @@ class FakeDNS:
                 when fromname_mock is called.
     """
 
-    @attr.s
+    @dataclasses.dataclass
     class FakeDNSAnswer:
 
-        error = attr.ib()
+        error: bool
 
     def __init__(self):
         self.used = False
@@ -350,14 +350,14 @@ def test_get_search_url_invalid(url):
         urlutils._get_search_url(url)
 
 
-@attr.s
+@dataclasses.dataclass
 class UrlParams:
 
-    url = attr.ib()
-    is_url = attr.ib(True)
-    is_url_no_autosearch = attr.ib(True)
-    use_dns = attr.ib(True)
-    is_url_in_schemeless = attr.ib(False)
+    url: QUrl
+    is_url: bool = True
+    is_url_no_autosearch: bool = True
+    use_dns: bool = True
+    is_url_in_schemeless: bool = False
 
 
 @pytest.mark.parametrize('auto_search',
@@ -552,9 +552,20 @@ def test_raise_cmdexc_if_invalid(url, valid, has_err_string):
     (QUrl('http://user:password@qutebrowser.org/foo?bar=baz#fish'), 'foo'),
     (QUrl('http://qutebrowser.org/'), 'qutebrowser.org.html'),
     (QUrl('qute://'), None),
+    # data URL support
+    (QUrl('data:text/plain,'), 'download.txt'),
+    (QUrl('data:application/pdf,'), 'download.pdf'),
+    (QUrl('data:foo/bar,'), 'download'),  # unknown extension
+    (QUrl('data:text/xul,'), 'download.xul'),  # strict=False
+    (QUrl('data:'), None),  # invalid data URL
 ])
 def test_filename_from_url(qurl, output):
     assert urlutils.filename_from_url(qurl) == output
+
+
+@pytest.mark.parametrize('qurl', [QUrl(), QUrl('qute://'), QUrl('data:')])
+def test_filename_from_url_fallback(qurl):
+    assert urlutils.filename_from_url(qurl, fallback='fallback') == 'fallback'
 
 
 @pytest.mark.parametrize('qurl, expected', [

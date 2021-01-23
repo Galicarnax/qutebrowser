@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -803,3 +803,54 @@ def parse_duration(duration: str) -> int:
     hours = float(hours_string.rstrip('h'))
     milliseconds = int((seconds + minutes * 60 + hours * 3600) * 1000)
     return milliseconds
+
+
+def mimetype_extension(mimetype: str) -> Optional[str]:
+    """Get a suitable extension for a given mimetype.
+
+    This mostly delegates to Python's mimetypes.guess_extension(), but backports some
+    changes (via a simple override dict) which are missing from earlier Python versions.
+    Most likely, this can be dropped once the minimum Python version is raised to 3.7.
+    """
+    overrides = {
+        # Added around 3.8
+        "application/manifest+json": ".webmanifest",
+        "application/x-hdf5": ".h5",
+
+        # Added in Python 3.7
+        "application/wasm": ".wasm",
+
+        # Wrong values for Python 3.6
+        # https://bugs.python.org/issue1043134
+        # https://github.com/python/cpython/pull/14375
+        "application/octet-stream": ".bin",  # not .a
+        "application/postscript": ".ps",  # not .ai
+        "application/vnd.ms-excel": ".xls",  # not .xlb
+        "application/vnd.ms-powerpoint": ".ppt",  # not .pot
+        "application/xml": ".xsl",  # not .rdf
+        "audio/mpeg": ".mp3",  # not .mp2
+        "image/jpeg": ".jpg",  # not .jpe
+        "image/tiff": ".tiff",  # not .tif
+        "text/html": ".html",  # not .htm
+        "text/plain": ".txt",  # not .bat
+        "video/mpeg": ".mpeg",  # not .m1v
+    }
+    if mimetype in overrides:
+        return overrides[mimetype]
+    return mimetypes.guess_extension(mimetype, strict=False)
+
+
+@contextlib.contextmanager
+def cleanup_file(filepath: str) -> Iterator[None]:
+    """Context that deletes a file upon exit or error.
+
+    Args:
+        filepath: The file path
+    """
+    try:
+        yield
+    finally:
+        try:
+            os.remove(filepath)
+        except OSError as e:
+            log.misc.error(f"Failed to delete tempfile {filepath} ({e})!")

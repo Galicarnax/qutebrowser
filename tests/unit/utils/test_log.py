@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -24,8 +24,8 @@ import argparse
 import itertools
 import sys
 import warnings
+import dataclasses
 
-import attr
 import pytest
 import _pytest.logging
 from PyQt5 import QtCore
@@ -412,15 +412,15 @@ def test_warning_still_errors():
 
 class TestQtMessageHandler:
 
-    @attr.s
+    @dataclasses.dataclass
     class Context:
 
         """Fake QMessageLogContext."""
 
-        function = attr.ib(default=None)
-        category = attr.ib(default=None)
-        file = attr.ib(default=None)
-        line = attr.ib(default=None)
+        function: str = None
+        category: str = None
+        file: str = None
+        line: int = None
 
     @pytest.fixture(autouse=True)
     def init_args(self):

@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -21,11 +21,12 @@
 
 """Fake objects/stubs."""
 
+from typing import Any, Callable, Tuple
 from unittest import mock
 import contextlib
 import shutil
+import dataclasses
 
-import attr
 from PyQt5.QtCore import pyqtSignal, QPoint, QProcess, QObject, QUrl
 from PyQt5.QtGui import QIcon
 from PyQt5.QtNetwork import (QNetworkRequest, QAbstractNetworkCache,
@@ -116,13 +117,7 @@ class FakeQApplication:
     UNSET = object()
 
     def __init__(self, *, style=None, all_widgets=None, active_window=None,
-                 instance=UNSET, arguments=None, platform_name=None):
-
-        if instance is self.UNSET:
-            self.instance = mock.Mock(return_value=self)
-        else:
-            self.instance = mock.Mock(return_value=instance)
-
+                 arguments=None, platform_name=None):
         self.style = mock.Mock(spec=QCommonStyle)
         self.style().metaObject().className.return_value = style
 
@@ -330,20 +325,20 @@ class FakeSignal:
         """
 
 
-@attr.s(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class FakeCommand:
 
     """A simple command stub which has a description."""
 
-    name = attr.ib('')
-    desc = attr.ib('')
-    hide = attr.ib(False)
-    debug = attr.ib(False)
-    deprecated = attr.ib(False)
-    completion = attr.ib(None)
-    maxsplit = attr.ib(None)
-    takes_count = attr.ib(lambda: False)
-    modes = attr.ib((usertypes.KeyMode.normal, ))
+    name: str = ''
+    desc: str = ''
+    hide: bool = False
+    debug: bool = False
+    deprecated: bool = False
+    completion: Any = None
+    maxsplit: int = None
+    takes_count: Callable[[], bool] = lambda: False
+    modes: Tuple[usertypes.KeyMode] = (usertypes.KeyMode.normal, )
 
 
 class FakeTimer(QObject):
@@ -633,8 +628,11 @@ class FakeHistoryProgress:
         self._finished = False
         self._value = 0
 
-    def start(self, _text, _maximum):
+    def start(self, _text):
         self._started = True
+
+    def set_maximum(self, _maximum):
+        pass
 
     def tick(self):
         self._value += 1

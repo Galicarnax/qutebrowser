@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -548,12 +548,10 @@ class AbstractDownloadItem(QObject):
             position: The color type requested, can be 'fg' or 'bg'.
         """
         assert position in ["fg", "bg"]
-        # pylint: disable=bad-config-option
         start = getattr(config.val.colors.downloads.start, position)
         stop = getattr(config.val.colors.downloads.stop, position)
         system = getattr(config.val.colors.downloads.system, position)
         error = getattr(config.val.colors.downloads.error, position)
-        # pylint: enable=bad-config-option
         if self.error_msg is not None:
             assert not self.successful
             return error

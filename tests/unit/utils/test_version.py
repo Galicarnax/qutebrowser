@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2015-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -31,8 +31,8 @@ import importlib
 import logging
 import textwrap
 import datetime
+import dataclasses
 
-import attr
 import pytest
 import hypothesis
 import hypothesis.strategies
@@ -622,7 +622,7 @@ class TestModuleVersions:
 
     @pytest.mark.parametrize('module, idx, expected', [
         ('colorama', 1, 'colorama: no'),
-        ('adblock', 6, 'adblock: no'),
+        ('adblock', 5, 'adblock: no'),
     ])
     def test_missing_module(self, module, idx, expected, import_fake):
         """Test with a module missing.
@@ -670,7 +670,7 @@ class TestModuleVersions:
         assert not mod_info.is_usable()
 
         expected = f"adblock: {fake_version} (< {mod_info.min_version}, outdated)"
-        assert version._module_versions()[6] == expected
+        assert version._module_versions()[5] == expected
 
     @pytest.mark.parametrize('attribute, expected_modules', [
         ('VERSION', ['colorama']),
@@ -709,12 +709,12 @@ class TestModuleVersions:
     @pytest.mark.parametrize('name, has_version', [
         ('sip', False),
         ('colorama', True),
-        ('pypeg2', True),
         ('jinja2', True),
         ('pygments', True),
         ('yaml', True),
         ('adblock', True),
-        ('attr', True),
+        ('dataclasses', False),
+        ('importlib_resources', False),
     ])
     def test_existing_attributes(self, name, has_version):
         """Check if all dependencies have an expected __version__ attribute.
@@ -943,18 +943,18 @@ class TestChromiumVersion:
         assert version._chromium_version() == 'avoided'
 
 
-@attr.s
+@dataclasses.dataclass
 class VersionParams:
 
-    name = attr.ib()
-    git_commit = attr.ib(True)
-    frozen = attr.ib(False)
-    qapp = attr.ib(True)
-    with_webkit = attr.ib(True)
-    known_distribution = attr.ib(True)
-    ssl_support = attr.ib(True)
-    autoconfig_loaded = attr.ib(True)
-    config_py_loaded = attr.ib(True)
+    name: str
+    git_commit: bool = True
+    frozen: bool = False
+    qapp: bool = True
+    with_webkit: bool = True
+    known_distribution: bool = True
+    ssl_support: bool = True
+    autoconfig_loaded: bool = True
+    config_py_loaded: bool = True
 
 
 @pytest.mark.parametrize('params', [
@@ -989,10 +989,8 @@ def test_version_info(params, stubs, monkeypatch, config_stub):
         'platform.architecture': lambda: ('ARCHITECTURE', ''),
         '_os_info': lambda: ['OS INFO 1', 'OS INFO 2'],
         '_path_info': lambda: {'PATH DESC': 'PATH NAME'},
-        'QApplication': (stubs.FakeQApplication(style='STYLE',
-                                                platform_name='PLATFORM')
-                         if params.qapp else
-                         stubs.FakeQApplication(instance=None)),
+        'objects.qapp': (stubs.FakeQApplication(style='STYLE', platform_name='PLATFORM')
+                         if params.qapp else None),
         'QLibraryInfo.location': (lambda _loc: 'QT PATH'),
         'sql.version': lambda: 'SQLITE VERSION',
         '_uptime': lambda: datetime.timedelta(hours=1, minutes=23, seconds=45),
@@ -1214,6 +1212,8 @@ def test_pastebin_version_error(pbclient, caplog, message_mock, monkeypatch):
 
 def test_uptime(monkeypatch, qapp):
     """Test _uptime runs and check if microseconds are dropped."""
+    monkeypatch.setattr(objects, 'qapp', qapp)
+
     launch_time = datetime.datetime(1, 1, 1, 1, 1, 1, 1)
     monkeypatch.setattr(qapp, "launch_time", launch_time, raising=False)
 

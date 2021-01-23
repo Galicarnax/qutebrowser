@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2017-2020 Florian Bruhin (The-Compiler) <me@the-compiler.org>
+# Copyright 2017-2021 Florian Bruhin (The-Compiler) <me@the-compiler.org>
 # Copyright 2017-2018 Michal Siedlaczek <michal.siedlaczek@gmail.com>
 
 # This file is part of qutebrowser.
@@ -89,7 +89,8 @@ def test_available_languages(dict_tmp_path, monkeypatch):
     monkeypatch.setattr(dictcli, 'language_list_from_api', lambda: [
         (lang.code, lang.remote_filename) for lang in langs()
     ])
-    assert sorted(dictcli.available_languages()) == [
+    languages = sorted(dictcli.available_languages(), key=lambda lang: lang.code)
+    assert languages == [
         dictcli.Language(
             code='af-ZA',
             name='Afrikaans (South Africa)',

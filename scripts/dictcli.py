@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2017-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2017-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 # Copyright 2017-2018 Michal Siedlaczek <michal.siedlaczek@gmail.com>
 
 # This file is part of qutebrowser.
@@ -31,8 +31,8 @@ import os
 import sys
 import re
 import urllib.request
-
-import attr
+import dataclasses
+from typing import Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 from qutebrowser.browser.webengine import spell
@@ -52,17 +52,17 @@ class InvalidLanguageError(Exception):
         super().__init__(msg)
 
 
-@attr.s
+@dataclasses.dataclass
 class Language:
 
     """Dictionary language specs."""
 
-    code = attr.ib()
-    name = attr.ib()
-    remote_filename = attr.ib()
-    local_filename = attr.ib(default=None)
+    code: str
+    name: str
+    remote_filename: str
+    local_filename: Optional[str] = None
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         if self.local_filename is None:
             self.local_filename = spell.local_filename(self.code)
 

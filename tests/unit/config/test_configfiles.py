@@ -1,5 +1,5 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-# Copyright 2017-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2017-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
 #
@@ -808,9 +808,7 @@ class TestConfigPy:
     ])
     def test_get(self, confpy, set_first, get_line):
         """Test whether getting options works correctly."""
-        # pylint: disable=bad-config-option
-        config.val.colors.hints.fg = 'green'
-        # pylint: enable=bad-config-option
+        config.val.colors.hints.fg = 'green'  # pylint: disable=bad-config-option
         if set_first:
             confpy.write('c.colors.hints.fg = "red"',
                          'assert {} == "red"'.format(get_line))

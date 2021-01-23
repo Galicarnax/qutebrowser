@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2017-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2017-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -130,7 +130,7 @@ def late_init(save_manager: savemanager.SaveManager) -> None:
                                text=_init_errors.to_html(),
                                icon=QMessageBox.Warning,
                                plain_text=False)
-        errbox.exec_()
+        errbox.exec()
 
         if _init_errors.fatal:
             sys.exit(usertypes.Exit.err_init)

@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2020-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -108,7 +108,7 @@ _RESOURCE_TYPE_STRINGS = {
 }
 
 
-def resource_type_to_string(resource_type: Optional[ResourceType]) -> str:
+def _resource_type_to_string(resource_type: Optional[ResourceType]) -> str:
     return _RESOURCE_TYPE_STRINGS.get(resource_type, "other")
 
 
@@ -141,7 +141,11 @@ class BraveAdBlocker:
             # use of this adblocking module.
             return False
 
-        if first_party_url is None or not first_party_url.isValid():
+        if (
+            first_party_url is None
+            or not first_party_url.isValid()
+            or first_party_url.scheme() == "file"
+        ):
             # FIXME: It seems that when `first_party_url` is None, every URL
             # I try is blocked. This may have been a result of me incorrectly
             # using the upstream library, or an upstream bug. For now we don't
@@ -157,7 +161,7 @@ class BraveAdBlocker:
         result = self._engine.check_network_urls(
             request_url.toString(),
             first_party_url.toString(),
-            resource_type_to_string(resource_type),
+            _resource_type_to_string(resource_type),
         )
 
         if not result.matched:

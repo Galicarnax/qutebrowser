@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -19,20 +19,21 @@
 
 """Tests for qutebrowser.utils.javascript."""
 
+import dataclasses
+
 import pytest
 import hypothesis
 import hypothesis.strategies
-import attr
 
 from qutebrowser.utils import javascript, usertypes
 
 
-@attr.s
+@dataclasses.dataclass
 class Case:
 
-    original = attr.ib()
-    replacement = attr.ib()
-    webkit_only = attr.ib(False)
+    original: str
+    replacement: str
+    webkit_only: bool = False
 
     def __str__(self):
         return self.original

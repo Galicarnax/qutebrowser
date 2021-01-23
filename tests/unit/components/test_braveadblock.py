@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2020-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -83,6 +83,18 @@ NOT_OKAY_URLS = [
     (
         "https://pixel.mathtag.com/sync/img/?mt_exid=10009&mt_exuid=&mm_bnc&mm_bct&UUID=c7b65ea6-76cc-4700-b0c7-6dbcd10820ed",
         "https://damndelicious.net/2019/04/03/easy-slow-cooker-chili/",
+        ResourceType.image,
+    ),
+]
+
+
+BUGGY_URLS = [
+    # https://github.com/brave/adblock-rust/issues/146
+    ("https://example.org/example.png", None, ResourceType.image),
+    # https://github.com/qutebrowser/qutebrowser/issues/6000
+    (
+        "https://wikimedia.org/api/rest_v1/media/math/render/svg/57f8",
+        "file:///home/user/src/qutebrowser/reproc.html",
         ResourceType.image,
     ),
 ]
@@ -366,3 +378,44 @@ def test_update_empty_directory_blocklist(ad_blocker, config_stub, empty_dir, ca
 
     # There are no filters, so no ads should be blocked.
     assert_none_blocked(ad_blocker)
+
+
+@pytest.mark.parametrize('url_str, source_url_str, resource_type', BUGGY_URLS)
+def test_buggy_url_workaround(ad_blocker, config_stub, easylist_easyprivacy,
+                              url_str, source_url_str, resource_type):
+    """Make sure our workaround for buggy brave-adblock URLs works."""
+    config_stub.val.content.blocking.adblock.lists = easylist_easyprivacy
+    ad_blocker.adblock_update()
+
+    url = QUrl(url_str)
+    assert url.isValid()
+    if source_url_str is None:
+        source_url = None
+    else:
+        source_url = QUrl(source_url_str)
+        assert source_url.isValid()
+
+    assert not ad_blocker._is_blocked(url, source_url, resource_type)
+
+
+@pytest.mark.parametrize('url_str, source_url_str, resource_type', BUGGY_URLS)
+def test_buggy_url_workaround_needed(ad_blocker, config_stub, easylist_easyprivacy,
+                                     url_str, source_url_str, resource_type):
+    """Make sure our workaround for buggy brave-adblock URLs is still needed.
+
+    If this test fails, https://github.com/brave/adblock-rust/issues/146 was likely
+    fixed and we should remove the workaround (if the `adblock` version is new enough).
+    """
+    config_stub.val.content.blocking.adblock.lists = easylist_easyprivacy
+    ad_blocker.adblock_update()
+
+    resource_type_str = braveadblock._resource_type_to_string(resource_type)
+    if source_url_str is None:
+        source_url_str = ""
+
+    result = ad_blocker._engine.check_network_urls(
+        url=url_str,
+        source_url=source_url_str,
+        request_type=resource_type_str
+    )
+    assert result.matched

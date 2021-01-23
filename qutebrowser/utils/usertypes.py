@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -21,9 +21,9 @@
 
 import operator
 import enum
+import dataclasses
 from typing import Any, Optional, Sequence, TypeVar, Union
 
-import attr
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject, QTimer
 from PyQt5.QtCore import QUrl
 
@@ -496,7 +496,7 @@ class AbstractCertificateErrorWrapper:
         raise NotImplementedError
 
 
-@attr.s
+@dataclasses.dataclass
 class NavigationRequest:
 
     """A request to navigate to the given URL."""
@@ -526,7 +526,7 @@ class NavigationRequest:
         #: None of the above.
         other = 8
 
-    url: QUrl = attr.ib()
-    navigation_type: Type = attr.ib()
-    is_main_frame: bool = attr.ib()
-    accepted: bool = attr.ib(default=True)
+    url: QUrl
+    navigation_type: Type
+    is_main_frame: bool
+    accepted: bool = True
