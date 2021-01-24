@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -23,10 +23,10 @@ import collections
 import functools
 import weakref
 import datetime
+import dataclasses
 from typing import (
     Any, Deque, List, Mapping, MutableMapping, MutableSequence, Optional, Tuple)
 
-import attr
 from PyQt5.QtWidgets import QSizePolicy, QWidget, QApplication
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QTimer, QUrl
 
@@ -39,16 +39,20 @@ from qutebrowser.utils import (log, usertypes, utils, qtutils, objreg,
 from qutebrowser.misc import quitter
 
 
-@attr.s
+@dataclasses.dataclass
 class _UndoEntry:
 
     """Information needed for :undo."""
 
-    url = attr.ib()
-    history = attr.ib()
-    index = attr.ib()
-    pinned = attr.ib()
-    created_at = attr.ib(attr.Factory(datetime.datetime.now))
+    url: QUrl
+    history: bytes
+    index: int
+    pinned: bool
+    created_at: datetime.datetime = dataclasses.field(
+        default_factory=datetime.datetime.now)
+
+
+UndoStackType = MutableSequence[MutableSequence[_UndoEntry]]
 
 
 class TabDeque:
@@ -221,8 +225,7 @@ class TabbedBrowser(QWidget):
 
         # This init is never used, it is immediately thrown away in the next
         # line.
-        self.undo_stack: MutableSequence[MutableSequence[_UndoEntry]] = (
-            collections.deque())
+        self.undo_stack: UndoStackType = collections.deque()
         self._update_stack_size()
         self._filter = signalfilter.SignalFilter(win_id, self)
         self._now_focused = None
@@ -411,7 +414,11 @@ class TabbedBrowser(QWidget):
             add_undo: Whether the tab close can be undone.
             new_undo: Whether the undo entry should be a new item in the stack.
         """
-        last_close = config.val.tabs.last_close
+        if config.val.tabs.tabs_are_windows:
+            last_close = 'close'
+        else:
+            last_close = config.val.tabs.last_close
+
         count = self.widget.count()
 
         if last_close == 'ignore' and count == 1:

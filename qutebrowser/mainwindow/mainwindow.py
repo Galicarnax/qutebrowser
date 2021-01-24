@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -49,7 +49,7 @@ from qutebrowser.mainwindow import messageview, prompt
 from qutebrowser.completion import completionwidget, completer
 from qutebrowser.keyinput import modeman
 from qutebrowser.browser import commands, downloadview, hints, downloads
-from qutebrowser.misc import crashsignal, keyhintwidget, sessions
+from qutebrowser.misc import crashsignal, keyhintwidget, sessions, objects
 from qutebrowser.qt import sip
 
 from qutebrowser.plugins import xkbswitch
@@ -113,7 +113,12 @@ def raise_window(window, alert=True):
     if not sip.isdeleted(window):
         # Could be deleted by the events run above
         window.activateWindow()
+
         QApplication.instance().alert(window)
+
+
+    if alert:
+        objects.qapp.alert(window)
 
 
 def get_target_window():
@@ -291,7 +296,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(0, self._connect_overlay_signals)
         config.instance.changed.connect(self._on_config_changed)
 
-        QApplication.instance().new_window.emit(self)
+        objects.qapp.new_window.emit(self)
         self._set_decoration(config.val.window.hide_decoration)
 
         self.state_before_fullscreen = self.windowState()

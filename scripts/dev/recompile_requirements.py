@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -173,7 +173,9 @@ CHANGELOG_URLS = {
     'jinja2-pluralize': 'https://github.com/audreyfeldroy/jinja2_pluralize/blob/master/HISTORY.rst',
     'mypy-extensions': 'https://github.com/python/mypy_extensions/commits/master',
     'pyroma': 'https://github.com/regebro/pyroma/blob/master/HISTORY.txt',
-    'pyPEG2': None,
+    'adblock': 'https://github.com/ArniDagur/python-adblock/blob/master/CHANGELOG.md',
+    'importlib-resources': 'https://importlib-resources.readthedocs.io/en/latest/history.html',
+    'dataclasses': 'https://github.com/ericvsmith/dataclasses#release-history',
 }
 
 

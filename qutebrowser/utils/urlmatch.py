@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2018-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2018-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -125,7 +125,7 @@ class UrlPattern:
 
     def _fixup_pattern(self, pattern: str) -> str:
         """Make sure the given pattern is parseable by urllib.parse."""
-        if pattern.startswith('*:'):  # Any scheme, but *:// is unparseable
+        if pattern.startswith('*:'):  # Any scheme, but *:// is unparsable
             pattern = 'any:' + pattern[2:]
 
         schemes = tuple(s + ':' for s in self._SCHEMES_WITHOUT_HOST)

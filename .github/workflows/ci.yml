@@ -38,7 +38,7 @@ jobs:
             .mypy_cache
             .tox
             ~/.cache/pip
-          key: "${{ matrix.testenv }}-${{ hashFiles('misc/requirements/requirements-*.txt') }}-${{ hashFiles('requirements.txt') }}"
+          key: "${{ matrix.testenv }}-${{ hashFiles('misc/requirements/requirements-*.txt') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('scripts/dev/pylint_checkers/qute_pylint/*.py') }}"
       - uses: actions/setup-python@v2
         with:
           python-version: '3.8'
@@ -102,7 +102,7 @@ jobs:
         include:
           ### PyQt 5.12 (Python 3.6)
           - testenv: py36-pyqt512
-            os: ubuntu-20.04
+            os: ubuntu-18.04
             python: 3.6
           ### PyQt 5.13 (Python 3.7)
           - testenv: py37-pyqt513
@@ -126,10 +126,10 @@ jobs:
             python: 3.7
             args: "tests/unit"  # Only run unit tests on macOS
           ### macOS Big Sur
-          - testenv: py37-pyqt515
-            os: macos-11.0
-            python: 3.7
-            args: "tests/unit"  # Only run unit tests on macOS
+          # - testenv: py37-pyqt515
+          #   os: macos-11.0
+          #   python: 3.7
+          #   args: "tests/unit"  # Only run unit tests on macOS
           ### Windows: PyQt 5.15 (Python 3.7 to match PyInstaller env)
           - testenv: py37-pyqt515
             os: windows-2019
@@ -177,14 +177,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-        with:
-          # We must fetch at least the immediate parents so that if this is
-          # a pull request then we can checkout the head.
-          fetch-depth: 2
-      # If this run was triggered by a pull request event, then checkout
-      # the head of the pull request instead of the merge commit.
-      - run: git checkout HEAD^2
-        if: ${{ github.event_name == 'pull_request' }}
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v1
         with:

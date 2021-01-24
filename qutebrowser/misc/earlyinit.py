@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The-Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The-Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -19,7 +19,7 @@
 
 """Things which need to be done really early (e.g. before importing Qt).
 
-At this point we can be sure we have all python 3.6 features available.
+At this point we can be sure we have all python 3.6.1 features available.
 """
 
 try:
@@ -95,7 +95,7 @@ def _die(message, exception=None):
                              message)
         msgbox.setTextFormat(Qt.RichText)
         msgbox.resize(msgbox.sizeHint())
-        msgbox.exec_()
+        msgbox.exec()
     app.quit()
     sys.exit(1)
 
@@ -200,7 +200,6 @@ def _check_modules(modules):
 
     for name, text in modules.items():
         try:
-            # https://bitbucket.org/fdik/pypeg/commits/dd15ca462b532019c0a3be1d39b8ee2f3fa32f4e
             # pylint: disable=bad-continuation
             with log.py_warning_filter(
                 category=DeprecationWarning,
@@ -226,11 +225,9 @@ def check_libraries():
     """Check if all needed Python libraries are installed."""
     modules = {
         'pkg_resources': _missing_str("pkg_resources/setuptools"),
-        'pypeg2': _missing_str("pypeg2"),
         'jinja2': _missing_str("jinja2"),
-        'pygments': _missing_str("pygments"),
         'yaml': _missing_str("PyYAML"),
-        'attr': _missing_str("attrs"),
+        'dataclasses': _missing_str("dataclasses"),
         'PyQt5.QtQml': _missing_str("PyQt5.QtQml"),
         'PyQt5.QtSql': _missing_str("PyQt5.QtSql"),
         'PyQt5.QtOpenGL': _missing_str("PyQt5.QtOpenGL"),

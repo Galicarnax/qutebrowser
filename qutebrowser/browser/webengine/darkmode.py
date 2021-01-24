@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2020-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -135,7 +135,7 @@ _DarkModeSettingsType = Iterable[
     Tuple[
         str,  # qutebrowser option name
         str,  # darkmode setting name
-        # Mapping from the config value to a string (or something convertable
+        # Mapping from the config value to a string (or something convertible
         # to a string) which gets passed to Chromium.
         Optional[Mapping[Any, Union[str, int]]],
     ],

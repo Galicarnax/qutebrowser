@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -25,6 +25,7 @@ import os.path
 import ipaddress
 import posixpath
 import urllib.parse
+import mimetypes
 from typing import Optional, Tuple, Union
 
 from PyQt5.QtCore import QUrl
@@ -393,24 +394,34 @@ def get_path_if_valid(pathstr: str,
     return path
 
 
-def filename_from_url(url: QUrl) -> Optional[str]:
+def filename_from_url(url: QUrl, fallback: str = None) -> Optional[str]:
     """Get a suitable filename from a URL.
 
     Args:
         url: The URL to parse, as a QUrl.
+        fallback: Value to use if no name can be determined.
 
     Return:
         The suggested filename as a string, or None.
     """
     if not url.isValid():
-        return None
+        return fallback
+
+    if url.scheme().lower() == 'data':
+        mimetype, _encoding = mimetypes.guess_type(url.toString())
+        if not mimetype:
+            return fallback
+
+        ext = utils.mimetype_extension(mimetype) or ''
+        return 'download' + ext
+
     pathname = posixpath.basename(url.path())
     if pathname:
         return pathname
     elif url.host():
         return url.host() + '.html'
     else:
-        return None
+        return fallback
 
 
 HostTupleType = Tuple[str, str, int]

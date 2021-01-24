@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2015-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -31,8 +31,8 @@ import importlib
 import logging
 import textwrap
 import datetime
+import dataclasses
 
-import attr
 import pytest
 import hypothesis
 import hypothesis.strategies
@@ -544,7 +544,7 @@ class ImportFake:
 
     Attributes:
         modules: A dict mapping module names to bools. If True, the import will
-                 success. Otherwise, it'll fail with ImportError.
+                 succeed. Otherwise, it'll fail with ImportError.
         version_attribute: The name to use in the fake modules for the version
                            attribute.
         version: The version to use for the modules.
@@ -553,22 +553,8 @@ class ImportFake:
     """
 
     def __init__(self):
-        self.modules = collections.OrderedDict([
-            ('sip', True),
-            ('colorama', True),
-            ('pypeg2', True),
-            ('jinja2', True),
-            ('pygments', True),
-            ('yaml', True),
-            ('attr', True),
-            ('PyQt5.QtWebEngineWidgets', True),
-            ('PyQt5.QtWebEngine', True),
-            ('PyQt5.QtWebKitWidgets', True),
-        ])
-        self.no_version_attribute = ['sip',
-                                     'PyQt5.QtWebEngineWidgets',
-                                     'PyQt5.QtWebKitWidgets',
-                                     'PyQt5.QtWebEngine']
+        self.modules = collections.OrderedDict(
+            [(mod, True) for mod in version.MODULE_INFO])
         self.version_attribute = '__version__'
         self.version = '1.2.3'
         self._real_import = builtins.__import__
@@ -621,13 +607,14 @@ def import_fake(monkeypatch):
 
 class TestModuleVersions:
 
-    """Tests for _module_versions()."""
+    """Tests for _module_versions() and ModuleInfo."""
 
     def test_all_present(self, import_fake):
         """Test with all modules present in version 1.2.3."""
         expected = []
         for name in import_fake.modules:
-            if name in import_fake.no_version_attribute:
+            version.MODULE_INFO[name]._reset_cache()
+            if '__version__' not in version.MODULE_INFO[name]._version_attributes:
                 expected.append('{}: yes'.format(name))
             else:
                 expected.append('{}: 1.2.3'.format(name))
@@ -635,6 +622,7 @@ class TestModuleVersions:
 
     @pytest.mark.parametrize('module, idx, expected', [
         ('colorama', 1, 'colorama: no'),
+        ('adblock', 5, 'adblock: no'),
     ])
     def test_missing_module(self, module, idx, expected, import_fake):
         """Test with a module missing.
@@ -645,7 +633,44 @@ class TestModuleVersions:
             expected: The expected text.
         """
         import_fake.modules[module] = False
+        # Needed after mocking the module
+        mod_info = version.MODULE_INFO[module]
+        mod_info._reset_cache()
+
         assert version._module_versions()[idx] == expected
+
+        for method_name, expected_result in [
+            ("is_installed", False),
+            ("is_usable", False),
+            ("get_version", None),
+            ("is_outdated", None)
+        ]:
+            method = getattr(mod_info, method_name)
+            # With hot cache
+            mod_info._initialize_info()
+            assert method() == expected_result
+            # With cold cache
+            mod_info._reset_cache()
+            assert method() == expected_result
+
+    def test_outdated_adblock(self, import_fake):
+        """Test that warning is shown when adblock module is outdated."""
+        mod_info = version.MODULE_INFO["adblock"]
+        fake_version = "0.1.0"
+
+        # Needed after mocking version attribute
+        mod_info._reset_cache()
+
+        assert mod_info.min_version is not None
+        assert fake_version < mod_info.min_version
+        import_fake.version = fake_version
+
+        assert mod_info.is_installed()
+        assert mod_info.is_outdated()
+        assert not mod_info.is_usable()
+
+        expected = f"adblock: {fake_version} (< {mod_info.min_version}, outdated)"
+        assert version._module_versions()[5] == expected
 
     @pytest.mark.parametrize('attribute, expected_modules', [
         ('VERSION', ['colorama']),
@@ -663,22 +688,33 @@ class TestModuleVersions:
             expected: The expected return value.
         """
         import_fake.version_attribute = attribute
+
+        for mod_info in version.MODULE_INFO.values():
+            # Invalidate the "version cache" since we just mocked some of the
+            # attributes.
+            mod_info._reset_cache()
+
         expected = []
         for name in import_fake.modules:
+            mod_info = version.MODULE_INFO[name]
             if name in expected_modules:
+                assert mod_info.get_version() == "1.2.3"
                 expected.append('{}: 1.2.3'.format(name))
             else:
+                assert mod_info.get_version() is None
                 expected.append('{}: yes'.format(name))
+
         assert version._module_versions() == expected
 
     @pytest.mark.parametrize('name, has_version', [
         ('sip', False),
         ('colorama', True),
-        ('pypeg2', True),
         ('jinja2', True),
         ('pygments', True),
         ('yaml', True),
-        ('attr', True),
+        ('adblock', True),
+        ('dataclasses', False),
+        ('importlib_resources', False),
     ])
     def test_existing_attributes(self, name, has_version):
         """Check if all dependencies have an expected __version__ attribute.
@@ -690,7 +726,7 @@ class TestModuleVersions:
             name: The name of the module to check.
             has_version: Whether a __version__ attribute is expected.
         """
-        module = importlib.import_module(name)
+        module = pytest.importorskip(name)
         assert hasattr(module, '__version__') == has_version
 
     def test_existing_sip_attribute(self):
@@ -907,18 +943,18 @@ class TestChromiumVersion:
         assert version._chromium_version() == 'avoided'
 
 
-@attr.s
+@dataclasses.dataclass
 class VersionParams:
 
-    name = attr.ib()
-    git_commit = attr.ib(True)
-    frozen = attr.ib(False)
-    qapp = attr.ib(True)
-    with_webkit = attr.ib(True)
-    known_distribution = attr.ib(True)
-    ssl_support = attr.ib(True)
-    autoconfig_loaded = attr.ib(True)
-    config_py_loaded = attr.ib(True)
+    name: str
+    git_commit: bool = True
+    frozen: bool = False
+    qapp: bool = True
+    with_webkit: bool = True
+    known_distribution: bool = True
+    ssl_support: bool = True
+    autoconfig_loaded: bool = True
+    config_py_loaded: bool = True
 
 
 @pytest.mark.parametrize('params', [
@@ -953,10 +989,8 @@ def test_version_info(params, stubs, monkeypatch, config_stub):
         'platform.architecture': lambda: ('ARCHITECTURE', ''),
         '_os_info': lambda: ['OS INFO 1', 'OS INFO 2'],
         '_path_info': lambda: {'PATH DESC': 'PATH NAME'},
-        'QApplication': (stubs.FakeQApplication(style='STYLE',
-                                                platform_name='PLATFORM')
-                         if params.qapp else
-                         stubs.FakeQApplication(instance=None)),
+        'objects.qapp': (stubs.FakeQApplication(style='STYLE', platform_name='PLATFORM')
+                         if params.qapp else None),
         'QLibraryInfo.location': (lambda _loc: 'QT PATH'),
         'sql.version': lambda: 'SQLITE VERSION',
         '_uptime': lambda: datetime.timedelta(hours=1, minutes=23, seconds=45),
@@ -1178,6 +1212,8 @@ def test_pastebin_version_error(pbclient, caplog, message_mock, monkeypatch):
 
 def test_uptime(monkeypatch, qapp):
     """Test _uptime runs and check if microseconds are dropped."""
+    monkeypatch.setattr(objects, 'qapp', qapp)
+
     launch_time = datetime.datetime(1, 1, 1, 1, 1, 1, 1)
     monkeypatch.setattr(qapp, "launch_time", launch_time, raising=False)
 

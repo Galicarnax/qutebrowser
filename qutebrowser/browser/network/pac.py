@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -301,7 +301,7 @@ class PACFetcher(QObject):
         if self._manager is not None:
             loop = qtutils.EventLoop()
             self.finished.connect(loop.quit)
-            loop.exec_()
+            loop.exec()
 
     def fetch_error(self):
         """Check if PAC script is successfully fetched.

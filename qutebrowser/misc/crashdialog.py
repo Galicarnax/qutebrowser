@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -33,12 +33,12 @@ from typing import List, Tuple
 from PyQt5.QtCore import pyqtSlot, Qt, QSize
 from PyQt5.QtWidgets import (QDialog, QLabel, QTextEdit, QPushButton,
                              QVBoxLayout, QHBoxLayout, QCheckBox,
-                             QDialogButtonBox, QApplication, QMessageBox)
+                             QDialogButtonBox, QMessageBox)
 
 import qutebrowser
 from qutebrowser.utils import version, log, utils
 from qutebrowser.misc import (miscwidgets, autoupdate, msgbox, httpclient,
-                              pastebin)
+                              pastebin, objects)
 from qutebrowser.config import config, configfiles
 from qutebrowser.browser import history
 
@@ -83,7 +83,7 @@ def parse_fatal_stacktrace(text):
 def _get_environment_vars():
     """Gather environment variables for the crash info."""
     masks = ('DESKTOP_SESSION', 'DE', 'QT_*', 'PYTHON*', 'LC_*', 'LANG',
-             'XDG_*', 'QUTE_*', 'PATH')
+             'XDG_*', 'QUTE_*', 'PATH', 'XMODIFIERS', 'XIM_*')
     info = []
     for key, value in os.environ.items():
         for m in masks:
@@ -241,8 +241,7 @@ class _CrashDialog(QDialog):
             exc: An exception tuple (type, value, traceback)
         """
         try:
-            application = QApplication.instance()
-            launch_time = application.launch_time.ctime()
+            launch_time = objects.qapp.launch_time.ctime()
             crash_time = datetime.datetime.now().ctime()
             text = 'Launch: {}\nCrash: {}'.format(launch_time, crash_time)
             self._crash_info.append(('Timestamps', text))

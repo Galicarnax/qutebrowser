@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -22,7 +22,7 @@
 import re
 import functools
 import xml.etree.ElementTree
-from typing import cast, Iterable
+from typing import cast, Iterable, Optional
 
 from PyQt5.QtCore import pyqtSlot, Qt, QUrl, QPoint, QTimer, QSizeF, QSize
 from PyQt5.QtGui import QIcon
@@ -687,7 +687,7 @@ class WebKitHistory(browsertab.AbstractHistory):
 
 class WebKitElements(browsertab.AbstractElements):
 
-    """QtWebKit implemementations related to elements on the page."""
+    """QtWebKit implementations related to elements on the page."""
 
     _tab: 'WebKitTab'
 
@@ -887,6 +887,9 @@ class WebKitTab(browsertab.AbstractTab):
 
     def title(self):
         return self._widget.title()
+
+    def renderer_process_pid(self) -> Optional[int]:
+        return None
 
     @pyqtSlot()
     def _on_history_trigger(self):

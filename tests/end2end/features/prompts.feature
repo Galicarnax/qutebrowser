@@ -1,7 +1,7 @@
 # vim: ft=cucumber fileencoding=utf-8 sts=4 sw=4 et:
 
 Feature: Prompts
-    Various prompts (javascript, SSL errors, authentification, etc.)
+    Various prompts (javascript, SSL errors, authentication, etc.)
 
     # Javascript
 
@@ -36,7 +36,7 @@ Feature: Prompts
         When I open data/prompt/jsconfirm.html
         And I run :click-element id button
         And I wait for a prompt
-        And I run :leave-mode
+        And I run :mode-leave
         Then the javascript message "confirm reply: false" should be logged
 
     Scenario: Javascript prompt
@@ -59,7 +59,7 @@ Feature: Prompts
         And I run :click-element id button
         And I wait for a prompt
         And I press the keys "prompt test"
-        And I run :leave-mode
+        And I run :mode-leave
         Then the javascript message "Prompt reply: null" should be logged
 
     # Multiple prompts
@@ -199,7 +199,7 @@ Feature: Prompts
         And I set content.ssl_strict to ask
         And I load an SSL page
         And I wait for a prompt
-        And I run :leave-mode
+        And I run :mode-leave
         Then a SSL error page should be shown
 
     # Geolocation
@@ -232,7 +232,7 @@ Feature: Prompts
         And I open data/prompt/geolocation.html in a new tab
         And I run :click-element id button
         And I wait for a prompt
-        And I run :leave-mode
+        And I run :mode-leave
         Then the javascript message "geolocation permission denied" should be logged
 
     # Notifications
@@ -303,7 +303,7 @@ Feature: Prompts
         And I open data/prompt/notifications.html in a new tab
         And I run :click-element id button
         And I wait for a prompt
-        And I run :leave-mode
+        And I run :mode-leave
         Then the javascript message "notification permission aborted" should be logged
 
     @qtwebengine_notifications
@@ -319,7 +319,7 @@ Feature: Prompts
 
     # Page authentication
 
-    Scenario: Successful webpage authentification
+    Scenario: Successful webpage authentication
         When I open basic-auth/user1/password1 without waiting
         And I wait for a prompt
         And I press the keys "user1"
@@ -372,10 +372,10 @@ Feature: Prompts
             }
 
     @qtwebengine_skip
-    Scenario: Cancellling webpage authentification with QtWebKit
+    Scenario: Cancellling webpage authentication with QtWebKit
         When I open basic-auth/user6/password6 without waiting
         And I wait for a prompt
-        And I run :leave-mode
+        And I run :mode-leave
         Then basic-auth/user6/password6 should be loaded
 
     # :prompt-accept with value argument

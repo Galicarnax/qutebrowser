@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -20,7 +20,8 @@
 """The main statusbar widget."""
 
 import enum
-import attr
+import dataclasses
+
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot,  # type: ignore[attr-defined]
                           pyqtProperty, Qt, QSize, QTimer)
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QStackedLayout, QSizePolicy
@@ -34,7 +35,7 @@ from qutebrowser.mainwindow.statusbar import (backforward, command, progress,
                                               tabindex, textbase)
 
 
-@attr.s
+@dataclasses.dataclass
 class ColorFlags:
 
     """Flags which change the appearance of the statusbar.
@@ -56,12 +57,12 @@ class ColorFlags:
         on = enum.auto()
         selection = enum.auto()
 
-    prompt = attr.ib(False)
-    insert = attr.ib(False)
-    command = attr.ib(False)
-    caret = attr.ib(CaretMode.off)
-    private = attr.ib(False)
-    passthrough = attr.ib(False)
+    prompt: bool = False
+    insert: bool = False
+    command: bool = False
+    caret: CaretMode = CaretMode.off
+    private: bool = False
+    passthrough: bool = False
 
     def to_stringlist(self):
         """Get a string list of set flags used in the stylesheet.
@@ -326,7 +327,7 @@ class StatusBar(QWidget):
         if mode == 'passthrough':
             key_instance = config.key_instance
             all_bindings = key_instance.get_reverse_bindings_for('passthrough')
-            bindings = all_bindings.get('leave-mode')
+            bindings = all_bindings.get('mode-leave')
             if bindings:
                 suffix = ' ({} to leave)'.format(' or '.join(bindings))
             else:

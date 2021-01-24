@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -33,8 +33,8 @@ import unittest.mock
 import types
 import mimetypes
 import os.path
+import dataclasses
 
-import attr
 import pytest
 import py.path  # pylint: disable=no-name-in-module
 from PyQt5.QtCore import QSize, Qt
@@ -87,12 +87,12 @@ class WinRegistryHelper:
 
     """Helper class for win_registry."""
 
-    @attr.s
+    @dataclasses.dataclass
     class FakeWindow:
 
         """A fake window object for the registry."""
 
-        registry = attr.ib()
+        registry: objreg.ObjectRegistry
 
         def windowTitle(self):
             return 'window title - qutebrowser'
@@ -276,15 +276,15 @@ def web_tab(request):
 
 def _generate_cmdline_tests():
     """Generate testcases for test_split_binding."""
-    @attr.s
+    @dataclasses.dataclass
     class TestCase:
 
-        cmd = attr.ib()
-        valid = attr.ib()
+        cmd: str
+        valid: bool
 
     separators = [';;', ' ;; ', ';; ', ' ;;']
     invalid = ['foo', '']
-    valid = ['leave-mode', 'hint all']
+    valid = ['mode-leave', 'hint all']
     # Valid command only -> valid
     for item in valid:
         yield TestCase(''.join(item), True)
@@ -444,7 +444,8 @@ def webengineview(qtbot, monkeypatch, web_tab_setup):
     monkeypatch.setattr(objects, 'backend', usertypes.Backend.QtWebEngine)
     view = QtWebEngineWidgets.QWebEngineView()
     qtbot.add_widget(view)
-    return view
+    yield view
+    view.setPage(None)  # Avoid warning if using QWebEngineProfile
 
 
 @pytest.fixture
@@ -502,13 +503,19 @@ def cookiejar_and_cache(stubs, monkeypatch):
 
 
 @pytest.fixture
-def py_proc():
+def py_proc(tmp_path):
     """Get a python executable and args list which executes the given code."""
     if getattr(sys, 'frozen', False):
         pytest.skip("Can't be run when frozen")
 
     def func(code):
-        return (sys.executable, ['-c', textwrap.dedent(code.strip('\n'))])
+        code = textwrap.dedent(code.strip('\n'))
+        if '\n' in code:
+            py_file = tmp_path / 'py_proc.py'
+            py_file.write_text(code)
+            return (sys.executable, [str(py_file)])
+        else:
+            return (sys.executable, ['-c', code])
 
     return func
 

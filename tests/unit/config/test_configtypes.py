@@ -1,5 +1,5 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
 #
@@ -25,8 +25,8 @@ import math
 import warnings
 import inspect
 import functools
+import dataclasses
 
-import attr
 import pytest
 import hypothesis
 from hypothesis import strategies
@@ -311,6 +311,18 @@ class TestAll:
             for value, _desc in completions:
                 typ.from_str(value)
 
+    def test_custom_completions(self, klass):
+        """Make sure we can pass custom completions."""
+        completions = [('1', 'one'), ('2', 'two')]
+        typ = klass(completions=completions)
+        assert typ.complete() == completions
+
+    def test_signature(self, klass):
+        """Make sure flag arguments are kw-only."""
+        sig = inspect.signature(klass)
+        for name in ['none_ok', 'completions']:
+            assert sig.parameters[name].kind == inspect.Parameter.KEYWORD_ONLY
+
 
 class TestBaseType:
 
@@ -534,8 +546,7 @@ class ListSubclass(configtypes.List):
             elemtype = configtypes.String(none_ok=none_ok_inner)
         super().__init__(elemtype, none_ok=none_ok_outer, length=length)
         if set_valid_values:
-            self.valtype.valid_values = configtypes.ValidValues(
-                'foo', 'bar', 'baz')
+            self.valtype.valid_values = configtypes.ValidValues('foo', 'bar', 'baz')
 
 
 class FlagListSubclass(configtypes.FlagList):
@@ -1350,14 +1361,14 @@ class TestQssColor:
             klass().to_py(val)
 
 
-@attr.s
+@dataclasses.dataclass
 class FontDesc:
 
-    style = attr.ib()
-    weight = attr.ib()
-    pt = attr.ib()
-    px = attr.ib()
-    family = attr.ib()
+    style: QFont.Style
+    weight: QFont.Weight
+    pt: int
+    px: int
+    family: str
 
 
 class TestFont:

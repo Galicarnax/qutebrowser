@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -170,6 +170,10 @@ def test_open_command_line_with_ascii_locale(request, server, tmpdir,
     quteproc_new.wait_for(message="load status for <* tab_id=* "
                           "url='*/f*.html'>: LoadStatus.error")
 
+    if request.config.webengine:
+        line = quteproc_new.wait_for(message="Load error: ERR_FILE_NOT_FOUND")
+        line.expected = True
+
 
 @pytest.mark.linux
 def test_misconfigured_user_dirs(request, server, temp_basedir_env,
@@ -321,7 +325,7 @@ def test_launching_with_old_python(python):
     except FileNotFoundError:
         pytest.skip(f"{python} not found")
     assert proc.returncode == 1
-    error = "At least Python 3.6 is required to run qutebrowser"
+    error = "At least Python 3.6.1 is required to run qutebrowser"
     assert proc.stderr.decode('ascii').startswith(error)
 
 

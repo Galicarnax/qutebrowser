@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2017-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2017-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -32,7 +32,7 @@ def global_settings(monkeypatch, default_profile):
     wrapper = webenginesettings._SettingsWrapper()
     settings = webenginesettings.WebEngineSettings(wrapper)
     settings.init_settings()
-    monkeypatch.setattr(webenginesettings, 'global_settings', settings)
+    monkeypatch.setattr(webenginesettings, '_global_settings', settings)
 
 
 @pytest.fixture
@@ -43,6 +43,7 @@ def default_profile(monkeypatch):
     """
     profile = QtWebEngineWidgets.QWebEngineProfile()
     profile.setter = webenginesettings.ProfileSetter(profile)
+    monkeypatch.setattr(profile, 'isOffTheRecord', lambda: False)
     monkeypatch.setattr(webenginesettings, 'default_profile', profile)
     return profile
 

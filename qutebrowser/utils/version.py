@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -31,9 +31,9 @@ import enum
 import datetime
 import getpass
 import functools
+import dataclasses
 from typing import Mapping, Optional, Sequence, Tuple, cast
 
-import attr
 from PyQt5.QtCore import PYQT_VERSION_STR, QLibraryInfo
 from PyQt5.QtNetwork import QSslSocket
 from PyQt5.QtGui import (QOpenGLContext, QOpenGLVersionProfile,
@@ -76,15 +76,15 @@ _LOGO = r'''
 '''
 
 
-@attr.s
+@dataclasses.dataclass
 class DistributionInfo:
 
     """Information about the running distribution."""
 
-    id: Optional[str] = attr.ib()
-    parsed: 'Distribution' = attr.ib()
-    version: Optional[utils.VersionNumber] = attr.ib()
-    pretty: str = attr.ib()
+    id: Optional[str]
+    parsed: 'Distribution'
+    version: Optional[utils.VersionNumber]
+    pretty: str
 
 
 pastebin_url = None
@@ -248,42 +248,136 @@ def _release_info() -> Sequence[Tuple[str, str]]:
     return data
 
 
+class ModuleInfo:
+
+    """Class to query version information of qutebrowser dependencies.
+
+    Attributes:
+        name: Name of the module as it is imported.
+        _version_attributes:
+            Sequence of attribute names belonging to the module which may hold
+            version information.
+        min_version: Minimum version of this module which qutebrowser can use.
+        _installed: Is the module installed? Determined at runtime.
+        _version: Version of the module. Determined at runtime.
+        _initialized:
+            Set to `True` if the `self._installed` and `self._version`
+            attributes have been set.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        version_attributes: Sequence[str],
+        min_version: Optional[str] = None
+    ):
+        self.name = name
+        self._version_attributes = version_attributes
+        self.min_version = min_version
+        self._installed = False
+        self._version: Optional[str] = None
+        self._initialized = False
+
+    def _reset_cache(self) -> None:
+        """Reset the version cache.
+
+        It is necessary to call this method in unit tests that mock a module's
+        version number.
+        """
+        self._installed = False
+        self._version = None
+        self._initialized = False
+
+    def _initialize_info(self) -> None:
+        """Import module and set `self.installed` and `self.version`."""
+        try:
+            module = importlib.import_module(self.name)
+        except (ImportError, ValueError):
+            self._installed = False
+            return
+        else:
+            self._installed = True
+
+        for attribute_name in self._version_attributes:
+            if hasattr(module, attribute_name):
+                version = getattr(module, attribute_name)
+                assert isinstance(version, (str, float))
+                self._version = str(version)
+                break
+
+        self._initialized = True
+
+    def get_version(self) -> Optional[str]:
+        """Finds the module version if it exists."""
+        if not self._initialized:
+            self._initialize_info()
+        return self._version
+
+    def is_installed(self) -> bool:
+        """Checks whether the module is installed."""
+        if not self._initialized:
+            self._initialize_info()
+        return self._installed
+
+    def is_outdated(self) -> Optional[bool]:
+        """Checks whether the module is outdated.
+
+        Return:
+            A boolean when the version and minimum version are both defined.
+            Otherwise `None`.
+        """
+        version = self.get_version()
+        if (
+            not self.is_installed()
+            or version is None
+            or self.min_version is None
+        ):
+            return None
+        return version < self.min_version
+
+    def is_usable(self) -> bool:
+        """Whether the module is both installed and not outdated."""
+        return self.is_installed() and not self.is_outdated()
+
+    def __str__(self) -> str:
+        if not self.is_installed():
+            return f'{self.name}: no'
+
+        version = self.get_version()
+        if version is None:
+            return f'{self.name}: yes'
+
+        text = f'{self.name}: {version}'
+        if self.is_outdated():
+            text += f" (< {self.min_version}, outdated)"
+        return text
+
+
+MODULE_INFO: Mapping[str, ModuleInfo] = collections.OrderedDict([
+    # FIXME: Mypy doesn't understand this. See https://github.com/python/mypy/issues/9706
+    (name, ModuleInfo(name, *args))  # type: ignore[arg-type, misc]
+    for (name, *args) in
+    [
+        ('sip', ['SIP_VERSION_STR']),
+        ('colorama', ['VERSION', '__version__']),
+        ('jinja2', ['__version__']),
+        ('pygments', ['__version__']),
+        ('yaml', ['__version__']),
+        ('adblock', ['__version__'], "0.3.2"),
+        ('PyQt5.QtWebEngineWidgets', []),
+        ('PyQt5.QtWebEngine', ['PYQT_WEBENGINE_VERSION_STR']),
+        ('PyQt5.QtWebKitWidgets', []),
+    ]
+])
+
+
 def _module_versions() -> Sequence[str]:
     """Get versions of optional modules.
 
     Return:
         A list of lines with version info.
     """
-    lines = []
-    modules: Mapping[str, Sequence[str]] = collections.OrderedDict([
-        ('sip', ['SIP_VERSION_STR']),
-        ('colorama', ['VERSION', '__version__']),
-        ('pypeg2', ['__version__']),
-        ('jinja2', ['__version__']),
-        ('pygments', ['__version__']),
-        ('yaml', ['__version__']),
-        ('attr', ['__version__']),
-        ('PyQt5.QtWebEngineWidgets', []),
-        ('PyQt5.QtWebEngine', ['PYQT_WEBENGINE_VERSION_STR']),
-        ('PyQt5.QtWebKitWidgets', []),
-    ])
-    for modname, attributes in modules.items():
-        try:
-            module = importlib.import_module(modname)
-        except (ImportError, ValueError):
-            text = '{}: no'.format(modname)
-        else:
-            for name in attributes:
-                try:
-                    text = '{}: {}'.format(modname, getattr(module, name))
-                except AttributeError:
-                    pass
-                else:
-                    break
-            else:
-                text = '{}: yes'.format(modname)
-        lines.append(text)
-    return lines
+    return [str(mod_info) for mod_info in MODULE_INFO.values()]
 
 
 def _path_info() -> Mapping[str, str]:
@@ -432,8 +526,7 @@ def _backend() -> str:
 
 
 def _uptime() -> datetime.timedelta:
-    launch_time = QApplication.instance().launch_time
-    time_delta = datetime.datetime.now() - launch_time
+    time_delta = datetime.datetime.now() - objects.qapp.launch_time
     # Round off microseconds
     time_delta -= datetime.timedelta(microseconds=time_delta.microseconds)
     return time_delta
@@ -479,11 +572,10 @@ def version_info() -> str:
                                      if QSslSocket.supportsSsl() else 'no'),
     ]
 
-    qapp = QApplication.instance()
-    if qapp:
-        style = qapp.style()
+    if objects.qapp:
+        style = objects.qapp.style()
         lines.append('Style: {}'.format(style.metaObject().className()))
-        lines.append('Platform plugin: {}'.format(qapp.platformName()))
+        lines.append('Platform plugin: {}'.format(objects.qapp.platformName()))
         lines.append('OpenGL: {}'.format(opengl_info()))
 
     importpath = os.path.dirname(os.path.abspath(qutebrowser.__file__))
@@ -528,27 +620,27 @@ def version_info() -> str:
     return '\n'.join(lines)
 
 
-@attr.s
+@dataclasses.dataclass
 class OpenGLInfo:
 
     """Information about the OpenGL setup in use."""
 
     # If we're using OpenGL ES. If so, no further information is available.
-    gles: bool = attr.ib(False)
+    gles: bool = False
 
     # The name of the vendor. Examples:
     # - nouveau
     # - "Intel Open Source Technology Center", "Intel", "Intel Inc."
-    vendor: Optional[str] = attr.ib(None)
+    vendor: Optional[str] = None
 
     # The OpenGL version as a string. See tests for examples.
-    version_str: Optional[str] = attr.ib(None)
+    version_str: Optional[str] = None
 
     # The parsed version as a (major, minor) tuple of ints
-    version: Optional[Tuple[int, ...]] = attr.ib(None)
+    version: Optional[Tuple[int, ...]] = None
 
     # The vendor specific information following the version number
-    vendor_specific: Optional[str] = attr.ib(None)
+    vendor_specific: Optional[str] = None
 
     def __str__(self) -> str:
         if self.gles:

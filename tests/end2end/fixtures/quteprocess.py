@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2015-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -329,6 +329,12 @@ def is_ignored_chromium_message(line):
          'filtering (maybe)?'),
         ('[.DisplayCompositor]GL ERROR :GL_INVALID_OPERATION : '
          'DoEndSharedImageAccessCHROMIUM: bound texture is not a shared image'),
+
+        # WebRTC with Qt 5.13 / 5.14
+        'Failed to query stereo recording.',
+        'Accepting maxRetransmits = -1 for backwards compatibility',
+        'Accepting maxRetransmitTime = -1 for backwards compatibility',
+
     ]
     return any(testutils.pattern_match(pattern=pattern, value=message)
                for pattern in ignored_messages)

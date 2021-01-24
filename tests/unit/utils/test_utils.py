@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -818,3 +818,101 @@ def test_libgl_workaround(monkeypatch, skip):
     if skip:
         monkeypatch.setenv('QUTE_SKIP_LIBGL_WORKAROUND', '1')
     utils.libgl_workaround()  # Just make sure it doesn't crash.
+
+
+@pytest.mark.parametrize('duration, out', [
+    ("0", 0),
+    ("0s", 0),
+    ("0.5s", 500),
+    ("59s", 59000),
+    ("60", 60),
+    ("60.4s", 60400),
+    ("1m1s", 61000),
+    ("1.5m", 90000),
+    ("1m", 60000),
+    ("1h", 3_600_000),
+    ("0.5h", 1_800_000),
+    ("1h1s", 3_601_000),
+    ("1h 1s", 3_601_000),
+    ("1h1m", 3_660_000),
+    ("1h1m1s", 3_661_000),
+    ("1h1m10s", 3_670_000),
+    ("10h1m10s", 36_070_000),
+])
+def test_parse_duration(duration, out):
+    assert utils.parse_duration(duration) == out
+
+
+@pytest.mark.parametrize('duration', [
+    "-1s",  # No sense to wait for negative seconds
+    "-1",
+    "34ss",
+    "",
+    "h",
+    "1.s",
+    "1.1.1s",
+    ".1s",
+    ".s",
+    "10e5s",
+    "5s10m",
+])
+def test_parse_duration_invalid(duration):
+    with pytest.raises(ValueError, match='Invalid duration'):
+        utils.parse_duration(duration)
+
+
+@hypothesis.given(strategies.text())
+def test_parse_duration_hypothesis(duration):
+    try:
+        utils.parse_duration(duration)
+    except ValueError:
+        pass
+
+
+@pytest.mark.parametrize('mimetype, extension', [
+    ('application/pdf', '.pdf'),  # handled by Python
+    ('text/plain', '.txt'),  # wrong in Python 3.6, overridden
+    ('application/manifest+json', '.webmanifest'),  # newer
+    ('text/xul', '.xul'),  # strict=False
+    ('doesnot/exist', None),
+])
+def test_mimetype_extension(mimetype, extension):
+    assert utils.mimetype_extension(mimetype) == extension
+
+
+class TestCleanupFileContext:
+
+    def test_no_file(self, tmp_path, caplog):
+        tmpfile = tmp_path / 'tmp.txt'
+        with caplog.at_level(logging.ERROR, 'misc'):
+            with utils.cleanup_file(tmpfile):
+                pass
+        assert len(caplog.messages) == 1
+        assert caplog.messages[0].startswith("Failed to delete tempfile")
+        assert not tmpfile.exists()
+
+    def test_no_error(self, tmp_path):
+        tmpfile = tmp_path / 'tmp.txt'
+        with tmpfile.open('w'):
+            pass
+        with utils.cleanup_file(tmpfile):
+            pass
+        assert not tmpfile.exists()
+
+    def test_error(self, tmp_path):
+        tmpfile = tmp_path / 'tmp.txt'
+        with tmpfile.open('w'):
+            pass
+        with pytest.raises(RuntimeError):
+            with utils.cleanup_file(tmpfile):
+                raise RuntimeError
+        assert not tmpfile.exists()
+
+    def test_directory(self, tmp_path, caplog):
+        assert tmp_path.is_dir()
+        # removal of file fails since it's a directory
+        with caplog.at_level(logging.ERROR, 'misc'):
+            with utils.cleanup_file(tmp_path):
+                pass
+        assert len(caplog.messages) == 1
+        assert caplog.messages[0].startswith("Failed to delete tempfile")

@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -32,9 +32,9 @@ handle what we actually think we do.
 """
 
 import itertools
+import dataclasses
 from typing import cast, overload, Iterable, Iterator, List, Mapping, Optional, Union
 
-import attr
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QKeySequence, QKeyEvent
 
@@ -319,6 +319,7 @@ def _parse_special_key(keystr: str) -> str:
         ('mod4', 'meta'),
         ('command', 'meta'),
         ('cmd', 'meta'),
+        ('super', 'meta'),
         ('mod1', 'alt'),
         ('less', '<'),
         ('greater', '>'),
@@ -336,7 +337,7 @@ def _parse_single_key(keystr: str) -> str:
     return 'Shift+' + keystr if keystr.isupper() else keystr
 
 
-@attr.s(frozen=True)
+@dataclasses.dataclass(frozen=True, order=True)
 class KeyInfo:
 
     """A key with optional modifiers.
@@ -346,8 +347,8 @@ class KeyInfo:
         modifiers: A Qt::KeyboardModifiers enum value.
     """
 
-    key: Qt.Key = attr.ib()
-    modifiers: _ModifierType = attr.ib()
+    key: Qt.Key
+    modifiers: _ModifierType
 
     @classmethod
     def from_event(cls, e: QKeyEvent) -> 'KeyInfo':

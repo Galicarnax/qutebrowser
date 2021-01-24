@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2015-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
 #
@@ -33,7 +33,6 @@ import qutebrowser.app  # pylint: disable=unused-import
 from qutebrowser.extensions import loader
 from qutebrowser.misc import objects
 from qutebrowser.utils import utils, version
-from qutebrowser.browser.webkit import rfc6266
 # To run the decorators from there
 # pylint: disable=unused-import
 from qutebrowser.browser.webkit.network import webkitqutescheme
@@ -49,13 +48,6 @@ def whitelist_generator():  # noqa: C901
     # qutebrowser commands
     for cmd in objects.commands.values():
         yield utils.qualname(cmd.handler)
-
-    # pyPEG2 classes
-    for name, member in inspect.getmembers(rfc6266, inspect.isclass):
-        for attr in ['grammar', 'regex']:
-            if hasattr(member, attr):
-                yield 'qutebrowser.browser.webkit.rfc6266.{}.{}'.format(name,
-                                                                        attr)
 
     # PyQt properties
     yield 'qutebrowser.mainwindow.statusbar.bar.StatusBar.color_flags'
@@ -135,7 +127,10 @@ def whitelist_generator():  # noqa: C901
     yield 'scripts.importer.import_moz_places.places.row_factory'
 
     # component hooks
-    yield 'qutebrowser.components.adblock.on_config_changed'
+    yield 'qutebrowser.components.hostblock.on_lists_changed'
+    yield 'qutebrowser.components.braveadblock.on_lists_changed'
+    yield 'qutebrowser.components.hostblock.on_method_changed'
+    yield 'qutebrowser.components.braveadblock.on_method_changed'
 
     # used in type comments
     yield 'pending_download_type'
@@ -161,8 +156,7 @@ def report(items):
     properties which get used for the items.
     """
     output = []
-    for item in sorted(items,
-                       key=lambda e: (e.filename.lower(), e.first_lineno)):
+    for item in sorted(items, key=lambda e: (str(e.filename).lower(), e.first_lineno)):
         output.append(item.get_report())
     return output
 

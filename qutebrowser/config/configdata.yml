@@ -118,23 +118,30 @@ backend:
   type:
     name: String
     valid_values:
-      - webengine: Use QtWebEngine (based on Chromium).
-      - webkit: Use QtWebKit (based on WebKit, similar to Safari).
+      - webengine: "Use QtWebEngine (based on Chromium - recommended)."
+      - webkit: "Use QtWebKit (based on WebKit, similar to Safari - many known security
+                issues!)."
   default: webengine
   restart: true
   desc: >-
     Backend to use to display websites.
 
     qutebrowser supports two different web rendering engines / backends,
-    QtWebKit and QtWebEngine.
+    QtWebEngine and QtWebKit (not recommended).
 
-    QtWebKit was discontinued by the Qt project with Qt 5.6, but picked up as a
-    well maintained fork: https://github.com/annulen/webkit/wiki - qutebrowser
-    only supports the fork.
+    QtWebEngine is Qt's official successor to QtWebKit, and both the default/recommended
+    backend. It's based on a stripped-down Chromium and regularly updated with security
+    fixes and new features by the Qt project: https://wiki.qt.io/QtWebEngine
 
-    QtWebEngine is Qt's official successor to QtWebKit. It's slightly more
-    resource hungry than QtWebKit and has a couple of missing features in
-    qutebrowser, but is generally the preferred choice.
+    QtWebKit was qutebrowser's original backend when the project was started. However,
+    support for QtWebKit was discontinued by the Qt project with Qt 5.6 in 2016. The
+    development of QtWebKit was picked up in an official fork:
+    https://github.com/qtwebkit/qtwebkit - however, the project seems to have stalled
+    again. The latest release (5.212.0 Alpha 4) from March 2020 is based on a WebKit
+    version from 2016, with many known security vulnerabilities. Additionally, there is
+    no process isolation and sandboxing. Due to all those issues, while support for
+    QtWebKit is still available in qutebrowser for now, using it is strongly
+    discouraged.
 
 
 ## qt
@@ -155,6 +162,21 @@ qt.args:
     With QtWebEngine, some Chromium arguments (see
     https://peter.sh/experiments/chromium-command-line-switches/ for a list)
     will work.
+
+qt.environ:
+  type:
+    name: Dict
+    keytype: String
+    valtype:
+      name: String
+      none_ok: true
+    none_ok: true
+  default: {}
+  restart: true
+  desc: >-
+    Additional environment variables to set.
+
+    Setting an environment variable to null/None will unset it.
 
 force_software_rendering:
   renamed: qt.force_software_rendering
@@ -592,12 +614,21 @@ content.headers.user_agent:
     to JavaScript requires a restart.
 
 content.host_blocking.enabled:
+  renamed: content.blocking.enabled
+
+content.host_blocking.lists:
+  renamed: content.blocking.hosts.lists
+
+content.host_blocking.whitelist:
+  renamed: content.blocking.whitelist
+
+content.blocking.enabled:
   default: true
   supports_pattern: true
   type: Bool
-  desc: Enable host blocking.
+  desc: Enable the ad/host blocker
 
-content.host_blocking.lists:
+content.blocking.hosts.lists:
   default:
     - "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
   type:
@@ -605,7 +636,9 @@ content.host_blocking.lists:
     valtype: Url
     none_ok: true
   desc: |
-    List of URLs of lists which contain hosts to block.
+    List of URLs to host blocklists for the host blocker.
+
+    Only used when the simple host-blocker is used (see `content.blocking.method`).
 
     The file can be in one of the following formats:
 
@@ -619,22 +652,59 @@ content.host_blocking.lists:
 
     The file `~/.config/qutebrowser/blocked-hosts` is always read if it exists.
 
-content.host_blocking.whitelist:
+content.blocking.method:
+  default: auto
+  type:
+    name: String
+    valid_values:
+      - auto: "Use Brave's ABP-style adblocker if available, host blocking
+        otherwise"
+      - adblock: Use Brave's ABP-style adblocker
+      - hosts: Use hosts blocking
+      - both: Use both hosts blocking and Brave's ABP-style adblocker
+  desc: |
+    Which method of blocking ads should be used.
+
+    Support for Adblock Plus (ABP) syntax blocklists using Brave's Rust library requires
+    the `adblock` Python package to be installed, which is an optional dependency of
+    qutebrowser. It is required when either `adblock` or `both` are selected.
+
+content.blocking.adblock.lists:
+  default:
+    - "https://easylist.to/easylist/easylist.txt"
+    - "https://easylist.to/easylist/easyprivacy.txt"
+  type:
+    name: List
+    valtype: Url
+    none_ok: true
+  desc: |
+    List of URLs to ABP-style adblocking rulesets.
+
+    Only used when Brave's ABP-style adblocker is used (see `content.blocking.method`).
+
+    You can find an overview of available lists here:
+    https://adblockplus.org/en/subscriptions - note that the special
+    `subscribe.adblockplus.org` links aren't handled by qutebrowser, you will instead
+    need to find the link to the raw `.txt` file (e.g. by extracting it from the
+    `location` parameter of the subscribe URL and URL-decoding it).
+
+content.blocking.whitelist:
   default: []
   type:
     name: List
     valtype: UrlPattern
     none_ok: true
   desc: >-
-    A list of patterns that should always be loaded, despite being ad-blocked.
+    A list of patterns that should always be loaded, despite being blocked by the
+    ad-/host-blocker.
 
-    Note this whitelists blocked hosts, not first-party URLs. As an example, if
-    `example.org` loads an ad from `ads.example.org`, the whitelisted host
-    should be `ads.example.org`. If you want to disable the adblocker on a
-    given page, use the `content.host_blocking.enabled` setting with a URL
-    pattern instead.
+    Local domains are always exempt from adblocking.
 
-    Local domains are always exempt from hostblocking.
+    Note this whitelists otherwise blocked requests, not first-party URLs. As
+    an example, if `example.org` loads an ad from `ads.example.org`, the
+    whitelist entry could be `https://ads.example.org/*`. If you want to
+    disable the adblocker on a given page, use the
+    `content.blocking.enabled` setting with a URL pattern instead.
 
 content.hyperlink_auditing:
   default: false
@@ -1071,14 +1141,28 @@ downloads.location.suggestion:
 completion.open_categories:
   type:
     name: FlagList
-    valid_values: [searchengines, quickmarks, bookmarks, history]
+    valid_values: [searchengines, quickmarks, bookmarks, history, filesystem]
     none_ok: true
   default:
     - searchengines
     - quickmarks
     - bookmarks
     - history
+    - filesystem
   desc: Which categories to show (in which order) in the :open completion.
+
+completion.favorite_paths:
+  type:
+    name: List
+    none_ok: true
+    valtype:
+      name: String
+  default: []
+  desc: >-
+    Default filesystem autocomplete suggestions for :open.
+
+    The elements of this list show up in the completion window under the Filesystem
+    category when the command line contains `:open` but no argument.
 
 downloads.open_dispatcher:
   type:
@@ -1116,7 +1200,7 @@ editor.command:
     placeholder: true
   default: ["gvim", "-f", "{file}", "-c", "normal {line}G{column0}l"]
   desc: |
-    Editor (and arguments) to use for the `open-editor` command.
+    Editor (and arguments) to use for the `edit-*` commands.
     The following placeholders are defined:
 
     * `{file}`: Filename of the file to be edited.
@@ -1130,6 +1214,55 @@ editor.encoding:
   type: Encoding
   default: utf-8
   desc: Encoding to use for the editor.
+
+## fileselect
+
+fileselect.handler:
+  default: default
+  type:
+    name: String
+    valid_values:
+      - default: "Use the default file selector."
+      - external: "Use an external command."
+  desc: >-
+      Handler for selecting file(s) in forms.
+      If `external`, then the commands specified by
+      `fileselect.single_file.command` and
+      `fileselect.multiple_files.command` are used to select one or
+      multiple files respectively.
+
+fileselect.single_file.command:
+  type:
+    name: ShellCommand
+    placeholder: true
+    completions:
+      - ['["xterm", "-e", "ranger", "--choosefile={}"]', "Ranger in xterm"]
+      - ['["xterm", "-e", "vifm", "--choose-file", "{}"]', "vifm in xterm"]
+  default: ['xterm', '-e', 'ranger', '--choosefile={}']
+  desc: >-
+    Command (and arguments) to use for selecting a single file in forms.
+    The command should write the selected file path to the specified file.
+
+    The following placeholders are defined:
+
+    * `{}`: Filename of the file to be written to.
+
+fileselect.multiple_files.command:
+  type:
+    name: ShellCommand
+    placeholder: true
+    completions:
+      - ['["xterm", "-e", "ranger", "--choosefiles={}"]', "Ranger in xterm"]
+      - ['["xterm", "-e", "vifm", "--choose-files", "{}"]', "vifm in xterm"]
+  default: ['xterm', '-e', 'ranger', '--choosefiles={}']
+  desc: >-
+    Command (and arguments) to use for selecting multiple files in forms.
+    The command should write the selected file paths to the specified file,
+    separated by newlines.
+
+    The following placeholders are defined:
+
+    * `{}`: Filename of the file to be written to.
 
 ## hints
 
@@ -1379,7 +1512,7 @@ input.insert_mode.plugins:
   desc: Switch to insert mode when clicking flash and other plugins.
 
 input.insert_mode.leave_on_load:
-  default: true
+  default: false
   type: Bool
   supports_pattern: true
   desc: >-
@@ -1408,7 +1541,7 @@ input.mouse.rocker_gestures:
     This disables the context menu.
 
 input.partial_timeout:
-  default: 5000
+  default: 0
   type:
     name: Int
     minval: 0
@@ -1418,6 +1551,8 @@ input.partial_timeout:
 
     If the current input forms only partial matches, the keystring will be
     cleared after this time.
+
+    If set to 0, partially typed bindings are never cleared.
 
 input.rocker_gestures:
   renamed: input.mouse.rocker_gestures
@@ -1629,7 +1764,7 @@ statusbar.widgets:
 ## tabs
 
 tabs.background:
-  default: false
+  default: true
   type: Bool
   desc: Open new tabs (middleclick/ctrl+click) in the background.
 
@@ -1673,7 +1808,11 @@ tabs.favicons.show:
       - always: Always show favicons.
       - never: Always hide favicons.
       - pinned: Show favicons only on pinned tabs.
-  desc: When to show favicons in the tab bar.
+  desc: >-
+    When to show favicons in the tab bar.
+
+    When switching this from never to always/pinned, note that favicons might
+    not be loaded yet, thus tabs might require a reload to display them.
 
 tabs.last_close:
   default: ignore
@@ -1685,7 +1824,11 @@ tabs.last_close:
       - startpage: "Load the start page."
       - default-page: "Load the default page."
       - close: "Close the window."
-  desc: How to behave when the last tab is closed.
+  desc: >-
+    How to behave when the last tab is closed.
+
+    If the `tabs.tabs_are_windows` setting is set, this is ignored and the behavior is
+    always identical to the `close` value.
 
 tabs.mousewheel_switching:
   default: true
@@ -1841,7 +1984,7 @@ tabs.width.bar:
   renamed: tabs.width
 
 tabs.width:
-  default: 20%
+  default: 15%
   type:
     name: PercOrInt
     minperc: 0
@@ -3071,8 +3214,8 @@ bindings.default:
       co: tab-only
       T: tab-focus
       gm: tab-move
-      gl: tab-move -
-      gr: tab-move +
+      gK: tab-move -
+      gJ: tab-move +
       J: tab-next
       <Ctrl-PgDown>: tab-next
       K: tab-prev
@@ -3119,11 +3262,11 @@ bindings.default:
       G: scroll-to-perc
       n: search-next
       N: search-prev
-      i: enter-mode insert
-      v: enter-mode caret
-      V: enter-mode caret ;; toggle-selection --line
-      "`": enter-mode set_mark
-      "'": enter-mode jump_mark
+      i: mode-enter insert
+      v: mode-enter caret
+      V: mode-enter caret ;; selection-toggle --line
+      "`": mode-enter set_mark
+      "'": mode-enter jump_mark
       yy: yank
       yY: yank -s
       yt: yank title
@@ -3174,11 +3317,11 @@ bindings.default:
       ad: download-cancel
       cd: download-clear
       gf: view-source
-      gt: set-cmd-text -s :buffer
+      gt: set-cmd-text -s :tab-select
       <Ctrl-Tab>: tab-focus last
       <Ctrl-Shift-Tab>: nop
       <Ctrl-^>: tab-focus last
-      <Ctrl-V>: enter-mode passthrough
+      <Ctrl-V>: mode-enter passthrough
       <Ctrl-Q>: quit
       ZQ: quit
       ZZ: quit --save
@@ -3205,14 +3348,14 @@ bindings.default:
       Sb: open qute://bookmarks#bookmarks
       Sq: open qute://bookmarks
       Sh: open qute://history
-      <Return>: follow-selected
-      <Ctrl-Return>: follow-selected -t
+      <Return>: selection-follow
+      <Ctrl-Return>: selection-follow -t
       .: repeat-command
       <Ctrl-p>: tab-pin
       <Alt-m>: tab-mute
       gD: tab-give
-      q: record-macro
-      "@": run-macro
+      q: macro-record
+      "@": macro-run
       tsh: config-cycle -p -t -u *://{url:host}/* content.javascript.enabled
         ;; reload
       tSh: config-cycle -p -u *://{url:host}/* content.javascript.enabled
@@ -3248,17 +3391,17 @@ bindings.default:
       tCu: config-cycle -p -u {url} content.cookies.accept
         all no-3rdparty never ;; reload
     insert:
-      <Ctrl-E>: open-editor
+      <Ctrl-E>: edit-text
       <Shift-Ins>: insert-text -- {primary}
-      <Escape>: leave-mode
+      <Escape>: mode-leave
     hint:
-      <Return>: follow-hint
+      <Return>: hint-follow
       <Ctrl-R>: hint --rapid links tab-bg
       <Ctrl-F>: hint links
       <Ctrl-B>: hint all tab-bg
-      <Escape>: leave-mode
+      <Escape>: mode-leave
     passthrough:
-      <Shift-Escape>: leave-mode
+      <Shift-Escape>: mode-leave
     command:
       <Ctrl-P>: command-history-prev
       <Ctrl-N>: command-history-next
@@ -3290,7 +3433,7 @@ bindings.default:
       <Ctrl-Y>: rl-yank
       <Ctrl-?>: rl-delete-char
       <Ctrl-H>: rl-backward-delete-char
-      <Escape>: leave-mode
+      <Escape>: mode-leave
     prompt:
       <Return>: prompt-accept
       <Ctrl-X>: prompt-open-download
@@ -3315,7 +3458,7 @@ bindings.default:
       <Ctrl-?>: rl-delete-char
       <Ctrl-H>: rl-backward-delete-char
       <Ctrl-Y>: rl-yank
-      <Escape>: leave-mode
+      <Escape>: mode-leave
     yesno:
       <Return>: prompt-accept
       y: prompt-accept yes
@@ -3324,13 +3467,13 @@ bindings.default:
       N: prompt-accept --save no
       <Alt-Y>: prompt-yank
       <Alt-Shift-Y>: prompt-yank --sel
-      <Escape>: leave-mode
+      <Escape>: mode-leave
     caret:
-      v: toggle-selection
-      V: toggle-selection --line
-      <Space>: toggle-selection
-      <Ctrl-Space>: drop-selection
-      c: enter-mode normal
+      v: selection-toggle
+      V: selection-toggle --line
+      <Space>: selection-toggle
+      <Ctrl-Space>: selection-drop
+      c: mode-enter normal
       j: move-to-next-line
       k: move-to-prev-line
       l: move-to-next-char
@@ -3338,7 +3481,7 @@ bindings.default:
       e: move-to-end-of-word
       w: move-to-next-word
       b: move-to-prev-word
-      o: reverse-selection
+      o: selection-reverse
       "]": move-to-start-of-next-block
       "[": move-to-start-of-prev-block
       "}": move-to-end-of-next-block
@@ -3354,9 +3497,9 @@ bindings.default:
       J: scroll down
       K: scroll up
       L: scroll right
-      <Escape>: leave-mode
+      <Escape>: mode-leave
     register:
-      <Escape>: leave-mode
+      <Escape>: mode-leave
   type:
     name: Dict
     none_ok: true

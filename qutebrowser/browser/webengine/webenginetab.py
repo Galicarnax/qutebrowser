@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2016-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -23,7 +23,7 @@ import math
 import functools
 import re
 import html as html_utils
-from typing import cast, Union
+from typing import cast, Union, Optional
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QPoint, QPointF, QUrl, QObject
 from PyQt5.QtNetwork import QAuthenticator
@@ -458,7 +458,7 @@ class WebEngineCaret(browsertab.AbstractCaret):
     def _toggle_sel_translate(self, state_str):
         if self._mode_manager.mode != usertypes.KeyMode.caret:
             # This may happen if the user switches to another mode after
-            # `:toggle-selection` is executed and before this callback function
+            # `:selection-toggle` is executed and before this callback function
             # is asynchronously called.
             log.misc.debug("Ignoring caret selection callback in {}".format(
                 self._mode_manager.mode))
@@ -699,7 +699,7 @@ class WebEngineZoom(browsertab.AbstractZoom):
 
 class WebEngineElements(browsertab.AbstractElements):
 
-    """QtWebEngine implemementations related to elements on the page."""
+    """QtWebEngine implementations related to elements on the page."""
 
     _tab: 'WebEngineTab'
 
@@ -772,7 +772,7 @@ class WebEngineElements(browsertab.AbstractElements):
 
 class WebEngineAudio(browsertab.AbstractAudio):
 
-    """QtWebEngine implemementations related to audio/muting.
+    """QtWebEngine implementations related to audio/muting.
 
     Attributes:
         _overridden: Whether the user toggled muting manually.
@@ -1000,19 +1000,20 @@ class _WebEngineScripts(QObject):
         code = javascript.assemble('stylesheet', 'set_css', css)
         self._tab.run_js_async(code)
 
-    def _inject_early_js(self, name, js_code, *,
-                         world=QWebEngineScript.ApplicationWorld,
-                         subframes=False):
+    def _inject_js(self, name, js_code, *,
+                   world=QWebEngineScript.ApplicationWorld,
+                   injection_point=QWebEngineScript.DocumentCreation,
+                   subframes=False):
         """Inject the given script to run early on a page load."""
         script = QWebEngineScript()
-        script.setInjectionPoint(QWebEngineScript.DocumentCreation)
+        script.setInjectionPoint(injection_point)
         script.setSourceCode(js_code)
         script.setWorldId(world)
         script.setRunsOnSubFrames(subframes)
         script.setName(f'_qute_{name}')
         self._widget.page().scripts().insert(script)
 
-    def _remove_early_js(self, name):
+    def _remove_js(self, name):
         """Remove an early QWebEngineScript."""
         scripts = self._widget.page().scripts()
         script = scripts.findScript(f'_qute_{name}')
@@ -1028,7 +1029,7 @@ class _WebEngineScripts(QObject):
             utils.read_file('javascript/caret.js'),
         )
         # FIXME:qtwebengine what about subframes=True?
-        self._inject_early_js('js', js_code, subframes=True)
+        self._inject_js('js', js_code, subframes=True)
         self._init_stylesheet()
 
         self._greasemonkey.scripts_reloaded.connect(
@@ -1042,14 +1043,14 @@ class _WebEngineScripts(QObject):
         Partially inspired by QupZilla:
         https://github.com/QupZilla/qupzilla/blob/v2.0/src/lib/app/mainapplication.cpp#L1063-L1101
         """
-        self._remove_early_js('stylesheet')
+        self._remove_js('stylesheet')
         css = shared.get_user_stylesheet()
         js_code = javascript.wrap_global(
             'stylesheet',
             utils.read_file('javascript/stylesheet.js'),
             javascript.assemble('stylesheet', 'set_css', css),
         )
-        self._inject_early_js('stylesheet', js_code, subframes=True)
+        self._inject_js('stylesheet', js_code, subframes=True)
 
     @pyqtSlot()
     def _inject_all_greasemonkey_scripts(self):
@@ -1137,30 +1138,34 @@ class _WebEngineScripts(QObject):
         if not config.val.content.site_specific_quirks:
             return
 
-        page_scripts = self._widget.page().scripts()
         quirks = [
             (
-                'whatsapp_web_quirk',
+                'whatsapp_web',
                 QWebEngineScript.DocumentReady,
                 QWebEngineScript.ApplicationWorld,
             ),
+            # FIXME not needed with 5.15.3 most likely, but how do we check for
+            # that?
+            (
+                'string_replaceall',
+                QWebEngineScript.DocumentCreation,
+                QWebEngineScript.MainWorld,
+            ),
         ]
         if not qtutils.version_check('5.13'):
-            quirks.append(('globalthis_quirk',
+            quirks.append(('globalthis',
                            QWebEngineScript.DocumentCreation,
                            QWebEngineScript.MainWorld))
-            quirks.append(('object_fromentries_quirk',
+            quirks.append(('object_fromentries',
                            QWebEngineScript.DocumentCreation,
                            QWebEngineScript.MainWorld))
 
         for filename, injection_point, world in quirks:
-            script = QWebEngineScript()
-            script.setName(filename)
-            script.setWorldId(world)
-            script.setInjectionPoint(injection_point)
-            src = utils.read_file("javascript/{}.user.js".format(filename))
-            script.setSourceCode(src)
-            page_scripts.insert(script)
+            src = utils.read_file(f'javascript/quirks/{filename}.user.js')
+            self._inject_js(
+                f'quirk_{filename}', src,
+                world=world, injection_point=injection_point
+            )
 
 
 class WebEngineTabPrivate(browsertab.AbstractTabPrivate):
@@ -1312,6 +1317,14 @@ class WebEngineTab(browsertab.AbstractTab):
 
     def title(self):
         return self._widget.title()
+
+    def renderer_process_pid(self) -> Optional[int]:
+        page = self._widget.page()
+        try:
+            return page.renderProcessPid()
+        except AttributeError:
+            # Added in Qt 5.15
+            return None
 
     def icon(self):
         return self._widget.icon()
@@ -1521,6 +1534,7 @@ class WebEngineTab(browsertab.AbstractTab):
         # However, self.url() is not available yet and the requested URL
         # might not match the URL we get from the error - so we just apply a
         # heuristic here.
+        assert self.data.last_navigation is not None
         if (show_non_overr_cert_error and
                 url.matches(self.data.last_navigation.url, QUrl.RemoveScheme)):
             self._show_error_page(url, str(error))

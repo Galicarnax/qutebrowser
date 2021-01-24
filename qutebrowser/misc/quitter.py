@@ -1,6 +1,6 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
-# Copyright 2014-2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
 #
@@ -32,7 +32,6 @@ import subprocess
 from typing import Iterable, Mapping, MutableSequence, Sequence, cast
 
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer
-from PyQt5.QtWidgets import QApplication
 try:
     import hunter
 except ImportError:
@@ -267,7 +266,7 @@ class Quitter(QObject):
             else:
                 print("Now logging late shutdown.", file=sys.stderr)
                 hunter.trace()
-        QApplication.instance().exit(status)
+        objects.qapp.exit(status)
 
 
 @cmdutils.register(name='quit')
@@ -311,7 +310,6 @@ def restart() -> None:
 def init(args: argparse.Namespace) -> None:
     """Initialize the global Quitter instance."""
     global instance
-    qapp = QApplication.instance()
-    instance = Quitter(args=args, parent=qapp)
+    instance = Quitter(args=args, parent=objects.qapp)
     instance.shutting_down.connect(log.shutdown_log)
-    qapp.lastWindowClosed.connect(instance.on_last_window_closed)
+    objects.qapp.lastWindowClosed.connect(instance.on_last_window_closed)
