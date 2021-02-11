@@ -16,7 +16,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Various small code checkers."""
 
@@ -218,6 +218,14 @@ def check_spelling(args: argparse.Namespace) -> Optional[bool]:
             re.compile(r'attr\.(s|ib)($|\()'),
             "attrs have been replaced by dataclasses in qutebrowser.",
         ),
+        (
+            re.compile(r'http://www\.gnu\.org/licenses/'),
+            "use https:// URL.",
+        ),
+        (
+            re.compile(r'IOError'),
+            "use OSError",
+        ),
     ]
 
     # Files which should be ignored, e.g. because they come from another
@@ -305,13 +313,17 @@ def check_userscript_shebangs(_args: argparse.Namespace) -> bool:
             continue
 
         with sub.open('r', encoding='utf-8') as f:
-            shebang = f.readline()
+            shebang = f.readline().rstrip('\n')
         assert shebang.startswith('#!'), shebang
-        binary = shebang.split()[0][2:]
+        shebang = shebang[2:]
 
+        binary = shebang.split()[0]
         if binary not in ['/bin/sh', '/usr/bin/env']:
             bin_name = pathlib.Path(binary).name
             print(f"In {sub}, use #!/usr/bin/env {bin_name} instead of #!{binary}")
+            ok = False
+        elif shebang in ['/usr/bin/env python', '/usr/bin/env python2']:
+            print(f"In {sub}, use #!/usr/bin/env python3 instead of #!{shebang}")
             ok = False
 
     return ok

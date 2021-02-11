@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Tests for qutebrowser.utils.utils."""
 
@@ -28,8 +28,9 @@ import functools
 import re
 import shlex
 import math
+import zipfile
 
-from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import QUrl, QRect
 from PyQt5.QtGui import QClipboard
 import pytest
 import hypothesis
@@ -39,6 +40,22 @@ import yaml
 import qutebrowser
 import qutebrowser.utils  # for test_qualname
 from qutebrowser.utils import utils, version, usertypes
+
+
+class TestVersionNumber:
+
+    @pytest.mark.parametrize('args, expected', [
+        ([5, 15, 2], 'VersionNumber(5, 15, 2)'),
+        ([5, 15], 'VersionNumber(5, 15)'),
+        ([5], 'VersionNumber(5)'),
+    ])
+    def test_repr(self, args, expected):
+        num = utils.VersionNumber(*args)
+        assert repr(num) == expected
+
+    def test_not_normalized(self):
+        with pytest.raises(ValueError, match='Refusing to construct'):
+            utils.VersionNumber(5, 15, 0)
 
 
 ELLIPSIS = '\u2026'
@@ -118,7 +135,62 @@ def freezer(request, monkeypatch):
 @pytest.mark.usefixtures('freezer')
 class TestReadFile:
 
-    """Test read_file."""
+    @pytest.fixture
+    def package_path(self, tmp_path):
+        return tmp_path / 'qutebrowser'
+
+    @pytest.fixture
+    def html_path(self, package_path):
+        path = package_path / 'html'
+        path.mkdir(parents=True)
+
+        for filename in ['test1.html', 'test2.html', 'README', 'unrelatedhtml']:
+            (path / filename).touch()
+
+        subdir = path / 'subdir'
+        subdir.mkdir()
+        (subdir / 'subdir-file.html').touch()
+
+        return path
+
+    @pytest.fixture
+    def html_zip(self, tmp_path, html_path):
+        if not hasattr(zipfile, 'Path'):
+            pytest.skip("Needs zipfile.Path")
+
+        zip_path = tmp_path / 'qutebrowser.zip'
+        with zipfile.ZipFile(zip_path, 'w') as zf:
+            for path in html_path.rglob('*'):
+                zf.write(path, path.relative_to(tmp_path))
+
+            assert sorted(zf.namelist()) == [
+                'qutebrowser/html/README',
+                'qutebrowser/html/subdir/',
+                'qutebrowser/html/subdir/subdir-file.html',
+                'qutebrowser/html/test1.html',
+                'qutebrowser/html/test2.html',
+                'qutebrowser/html/unrelatedhtml',
+            ]
+
+        yield zipfile.Path(zip_path) / 'qutebrowser'
+
+    @pytest.fixture(params=['pathlib', 'zipfile'])
+    def resource_root(self, request):
+        """Resource files packaged either directly or via a zip."""
+        if request.param == 'pathlib':
+            request.getfixturevalue('html_path')
+            return request.getfixturevalue('package_path')
+        elif request.param == 'zipfile':
+            return request.getfixturevalue('html_zip')
+        raise utils.Unreachable(request.param)
+
+    def test_glob_resources(self, resource_root):
+        files = sorted(utils._glob_resources(resource_root, 'html', '.html'))
+        assert files == ['html/test1.html', 'html/test2.html']
+
+    def test_glob_resources_subdir(self, resource_root):
+        files = sorted(utils._glob_resources(resource_root, 'html/subdir', '.html'))
+        assert files == ['html/subdir/subdir-file.html']
 
     def test_readfile(self):
         """Read a test file."""
@@ -129,23 +201,44 @@ class TestReadFile:
                                           'html/error.html'])
     def test_read_cached_file(self, mocker, filename):
         utils.preload_resources()
-        m = mocker.patch('pkg_resources.resource_string')
+        m = mocker.patch('qutebrowser.utils.utils.importlib_resources.files')
         utils.read_file(filename)
         m.assert_not_called()
 
     def test_readfile_binary(self):
         """Read a test file in binary mode."""
-        content = utils.read_file(os.path.join('utils', 'testfile'),
-                                  binary=True)
+        content = utils.read_file_binary(os.path.join('utils', 'testfile'))
         assert content.splitlines()[0] == b"Hello World!"
 
+    @pytest.mark.parametrize('name', ['read_file', 'read_file_binary'])
+    @pytest.mark.parametrize('fake_exception', [KeyError, FileNotFoundError, None])
+    def test_not_found(self, name, fake_exception, monkeypatch):
+        """Test behavior when a resources file wasn't found.
 
-@pytest.mark.usefixtures('freezer')
-def test_resource_filename():
-    """Read a test file."""
-    filename = utils.resource_filename(os.path.join('utils', 'testfile'))
-    with open(filename, 'r', encoding='utf-8') as f:
-        assert f.read().splitlines()[0] == "Hello World!"
+        With fake_exception, we emulate the rather odd error handling of certain Python
+        versions: https://bugs.python.org/issue43063
+        """
+        class BrokenFileFake:
+
+            def __init__(self, exc):
+                self.exc = exc
+
+            def read_bytes(self):
+                raise self.exc("File does not exist")
+
+            def read_text(self, encoding):
+                raise self.exc("File does not exist")
+
+            def __truediv__(self, _other):
+                return self
+
+        if fake_exception is not None:
+            monkeypatch.setattr(utils.importlib_resources, 'files',
+                                lambda _pkg: BrokenFileFake(fake_exception))
+
+        meth = getattr(utils, name)
+        with pytest.raises(FileNotFoundError):
+            meth('doesnotexist')
 
 
 @pytest.mark.parametrize('seconds, out', [
@@ -916,3 +1009,53 @@ class TestCleanupFileContext:
                 pass
         assert len(caplog.messages) == 1
         assert caplog.messages[0].startswith("Failed to delete tempfile")
+
+
+class TestParseRect:
+
+    @pytest.mark.parametrize('value, expected', [
+        ('1x1+0+0', QRect(0, 0, 1, 1)),
+        ('123x789+12+34', QRect(12, 34, 123, 789)),
+    ])
+    def test_valid(self, value, expected):
+        assert utils.parse_rect(value) == expected
+
+    @pytest.mark.parametrize('value, message', [
+        ('0x0+1+1', "Invalid rectangle"),
+        ('1x1-1+1', "String 1x1-1+1 does not match WxH+X+Y"),
+        ('1x1+1-1', "String 1x1+1-1 does not match WxH+X+Y"),
+        ('1x1', "String 1x1 does not match WxH+X+Y"),
+        ('+1+2', "String +1+2 does not match WxH+X+Y"),
+        ('1e0x1+0+0', "String 1e0x1+0+0 does not match WxH+X+Y"),
+        ('¹x1+0+0', "String ¹x1+0+0 does not match WxH+X+Y"),
+    ])
+    def test_invalid(self, value, message):
+        with pytest.raises(ValueError) as excinfo:
+            utils.parse_rect(value)
+        assert str(excinfo.value) == message
+
+    @hypothesis.given(strategies.text())
+    def test_hypothesis_text(self, s):
+        try:
+            utils.parse_rect(s)
+        except ValueError as e:
+            print(e)
+
+    @hypothesis.given(strategies.tuples(
+        strategies.integers(),
+        strategies.integers(),
+        strategies.integers(),
+        strategies.integers(),
+    ).map(lambda tpl: '{}x{}+{}+{}'.format(*tpl)))
+    def test_hypothesis_sophisticated(self, s):
+        try:
+            utils.parse_rect(s)
+        except ValueError as e:
+            print(e)
+
+    @hypothesis.given(strategies.from_regex(utils._RECT_PATTERN))
+    def test_hypothesis_regex(self, s):
+        try:
+            utils.parse_rect(s)
+        except ValueError as e:
+            print(e)

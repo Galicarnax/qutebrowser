@@ -16,7 +16,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import pathlib
@@ -176,6 +176,9 @@ def test_untested_floats(covtest):
     assert covtest.check() == [expected]
 
 
+@pytest.mark.skipif(
+    sys.version_info[:4] == (3, 10, 0, 'alpha'),
+    reason='Different results, see https://github.com/nedbat/coveragepy/issues/1106')
 def test_untested_branches(covtest):
     covtest.makefile("""
         def func2(arg):

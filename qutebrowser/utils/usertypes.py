@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Custom useful data types."""
 
@@ -30,7 +30,7 @@ from PyQt5.QtCore import QUrl
 from qutebrowser.utils import log, qtutils, utils
 
 
-_T = TypeVar('_T', bound=utils.SupportsLessThan)
+_T = TypeVar('_T', bound=utils.Comparable)
 
 
 class Unset:

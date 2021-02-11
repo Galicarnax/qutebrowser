@@ -14,10 +14,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import os
+import logging
 
 import pytest
 
@@ -27,23 +28,26 @@ from qutebrowser.utils import usertypes
 from helpers import utils
 
 
+@pytest.fixture
+def parser(mocker):
+    """Fixture to provide an argparser.
+
+    Monkey-patches .exit() of the argparser so it doesn't exit on errors.
+    """
+    parser = qutebrowser.get_argparser()
+    mocker.patch.object(parser, 'exit', side_effect=Exception)
+    return parser
+
+
+@pytest.fixture
+def reduce_args(monkeypatch, config_stub):
+    """Make sure no --disable-shared-workers/referer argument get added."""
+    monkeypatch.setattr(qtargs.qtutils, 'qVersion', lambda: '5.15.0')
+    config_stub.val.content.headers.referer = 'always'
+
+
+@pytest.mark.usefixtures('reduce_args')
 class TestQtArgs:
-
-    @pytest.fixture
-    def parser(self, mocker):
-        """Fixture to provide an argparser.
-
-        Monkey-patches .exit() of the argparser so it doesn't exit on errors.
-        """
-        parser = qutebrowser.get_argparser()
-        mocker.patch.object(parser, 'exit', side_effect=Exception)
-        return parser
-
-    @pytest.fixture(autouse=True)
-    def reduce_args(self, monkeypatch, config_stub):
-        """Make sure no --disable-shared-workers/referer argument get added."""
-        monkeypatch.setattr(qtargs.qtutils, 'qVersion', lambda: '5.15.0')
-        config_stub.val.content.headers.referer = 'always'
 
     @pytest.mark.parametrize('args, expected', [
         # No Qt arguments
@@ -87,6 +91,15 @@ class TestQtArgs:
         assert args[0] == sys.argv[0]
         for arg in ['--foo', '--bar']:
             assert arg in args
+
+
+@pytest.mark.usefixtures('reduce_args')
+class TestWebEngineArgs:
+
+    @pytest.fixture(autouse=True)
+    def ensure_webengine(self):
+        """Skip all tests if QtWebEngine is unavailable."""
+        pytest.importorskip("PyQt5.QtWebEngine")
 
     @pytest.mark.parametrize('backend, expected', [
         (usertypes.Backend.QtWebEngine, True),
@@ -552,3 +565,29 @@ class TestEnvVars:
         monkeypatch.setattr(qtargs.objects, 'backend',
                             usertypes.Backend.QtWebKit)
         qtargs.init_envvars()
+
+    @pytest.mark.parametrize('backend, value, expected', [
+        (usertypes.Backend.QtWebKit, None, None),
+        (usertypes.Backend.QtWebKit, '--test', None),
+
+        (usertypes.Backend.QtWebEngine, None, None),
+        (usertypes.Backend.QtWebEngine, '', "''"),
+        (usertypes.Backend.QtWebEngine, '--xyz', "'--xyz'"),
+    ])
+    def test_qtwe_flags_warning(self, monkeypatch, config_stub, caplog,
+                                backend, value, expected):
+        monkeypatch.setattr(qtargs.objects, 'backend', backend)
+        if value is None:
+            monkeypatch.delenv('QTWEBENGINE_CHROMIUM_FLAGS', raising=False)
+        else:
+            monkeypatch.setenv('QTWEBENGINE_CHROMIUM_FLAGS', value)
+
+        with caplog.at_level(logging.WARNING):
+            qtargs.init_envvars()
+
+        if expected is None:
+            assert not caplog.messages
+        else:
+            assert len(caplog.messages) == 1
+            msg = caplog.messages[0]
+            assert msg.startswith(f'You have QTWEBENGINE_CHROMIUM_FLAGS={expected} set')

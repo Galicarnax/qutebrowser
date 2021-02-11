@@ -16,7 +16,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Enforce perfect coverage on some files."""
 
@@ -77,8 +77,6 @@ PERFECT_FILES = [
      'qutebrowser/api/message.py'),
     (None,
      'qutebrowser/api/qtutils.py'),
-    (None,
-     'qutebrowser/qt.py'),
 
     ('tests/unit/browser/webkit/test_cache.py',
      'qutebrowser/browser/webkit/cache.py'),

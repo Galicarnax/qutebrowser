@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Things which need to be done really early (e.g. before importing Qt).
 
@@ -224,7 +224,6 @@ def _check_modules(modules):
 def check_libraries():
     """Check if all needed Python libraries are installed."""
     modules = {
-        'pkg_resources': _missing_str("pkg_resources/setuptools"),
         'jinja2': _missing_str("jinja2"),
         'yaml': _missing_str("PyYAML"),
         'dataclasses': _missing_str("dataclasses"),
@@ -232,6 +231,9 @@ def check_libraries():
         'PyQt5.QtSql': _missing_str("PyQt5.QtSql"),
         'PyQt5.QtOpenGL': _missing_str("PyQt5.QtOpenGL"),
     }
+    if sys.version_info < (3, 9):
+        # Backport required
+        modules['importlib_resources'] = _missing_str("importlib_resources")
     _check_modules(modules)
 
 

@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Configuration storage and config-related utilities."""
 
@@ -278,7 +278,6 @@ class Config(QObject):
         self._init_values()
         self.yaml_loaded = False
         self.config_py_loaded = False
-        self.warn_autoconfig = True
 
     def _init_values(self) -> None:
         """Populate the self._values dict."""

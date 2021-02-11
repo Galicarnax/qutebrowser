@@ -15,12 +15,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Utilities related to jinja2."""
 
 import os
 import os.path
+import posixpath
 import functools
 import contextlib
 import html
@@ -105,19 +106,21 @@ class Environment(jinja2.Environment):
         self._autoescape = True
 
     def _resource_url(self, path: str) -> str:
-        """Load images from a relative path (to qutebrowser).
+        """Load qutebrowser resource files.
 
         Arguments:
-            path: The relative path to the image
+            path: The relative path to the resource.
         """
-        image = utils.resource_filename(path)
-        url = QUrl.fromLocalFile(image)
+        assert not posixpath.isabs(path), path
+        url = QUrl('qute://resource')
+        url.setPath('/' + path)
+        urlutils.ensure_valid(url)
         urlstr = url.toString(QUrl.FullyEncoded)  # type: ignore[arg-type]
         return urlstr
 
     def _data_url(self, path: str) -> str:
         """Get a data: url for the broken qutebrowser logo."""
-        data = utils.read_file(path, binary=True)
+        data = utils.read_file_binary(path)
         mimetype = utils.guess_mimetype(path)
         return urlutils.data_url(mimetype, data).toString()
 

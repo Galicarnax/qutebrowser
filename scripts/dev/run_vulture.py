@@ -16,7 +16,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Run vulture on the source files and filter out false-positives."""
 
@@ -137,6 +137,13 @@ def whitelist_generator():  # noqa: C901
     yield 'world_id_type'
     yield 'ParserDictType'
     yield 'qutebrowser.config.configutils.Values._VmapKeyType'
+
+    # ELF
+    yield 'qutebrowser.misc.elf.Endianness.big'
+    for name in ['phoff', 'ehsize', 'phentsize', 'phnum']:
+        yield f'qutebrowser.misc.elf.Header.{name}'
+    for name in ['addr', 'addralign', 'entsize']:
+        yield f'qutebrowser.misc.elf.SectionHeader.{name}'
 
 
 def filter_func(item):

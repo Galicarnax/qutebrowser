@@ -14,7 +14,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Tests for qutebrowser.config.configinit."""
 
@@ -203,6 +203,19 @@ class TestEarlyInit:
             expected = ['colors.hints.fg = magenta']
 
         assert dump == '\n'.join(expected)
+
+    def test_autoconfig_warning(self, init_patch, args, config_tmpdir, caplog):
+        """Test the warning shown for missing autoconfig loading."""
+        config_py_file = config_tmpdir / 'config.py'
+        config_py_file.ensure()
+
+        with caplog.at_level(logging.ERROR):
+            configinit.early_init(args)
+
+        # Check error messages
+        assert len(configinit._init_errors.errors) == 1
+        error = configinit._init_errors.errors[0]
+        assert str(error).startswith("autoconfig loading not specified")
 
     @pytest.mark.parametrize('byte', [
         b'\x00',  # configparser.Error

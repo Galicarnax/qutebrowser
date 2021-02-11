@@ -15,20 +15,23 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Test starting qutebrowser with special arguments/environments."""
 
+import configparser
 import subprocess
 import sys
 import logging
 import re
 import json
+import time
 
 import pytest
 from PyQt5.QtCore import QProcess
 
 from helpers import utils
+from qutebrowser.utils import qtutils
 
 
 ascii_locale = pytest.mark.skipif(sys.hexversion >= 0x03070000,
@@ -435,3 +438,181 @@ def test_preferred_colorscheme(request, quteproc_new):
 
     quteproc_new.send_cmd(':jseval matchMedia("(prefers-color-scheme: dark)").matches')
     quteproc_new.wait_for(message='True')
+
+
+@pytest.mark.qtwebkit_skip
+@pytest.mark.parametrize('reason', [
+    'Explicitly enabled',
+    pytest.param('Qt 5.14', marks=utils.qt514),
+    'Qt version changed',
+    None,
+])
+def test_service_worker_workaround(
+        request, server, quteproc_new, short_tmpdir, reason):
+    """Make sure we remove the QtWebEngine Service Worker directory if configured."""
+    args = _base_args(request.config) + ['--basedir', str(short_tmpdir)]
+    if reason == 'Explicitly enabled':
+        settings_args = ['-s', 'qt.workarounds.remove_service_workers', 'true']
+    else:
+        settings_args = []
+
+    service_worker_dir = short_tmpdir / 'data' / 'webengine' / 'Service Worker'
+
+    # First invocation: Create directory
+    quteproc_new.start(args)
+    quteproc_new.open_path('data/service-worker/index.html')
+    server.wait_for(verb='GET', path='/data/service-worker/data.json')
+    quteproc_new.send_cmd(':quit')
+    quteproc_new.wait_for_quit()
+    assert service_worker_dir.exists()
+
+    # Edit state file if needed
+    state_file = short_tmpdir / 'data' / 'state'
+    if reason == 'Qt 5.14':
+        state_file.remove()
+    elif reason == 'Qt version changed':
+        parser = configparser.ConfigParser()
+        parser.read(state_file)
+        del parser['general']['qt_version']
+        with state_file.open('w', encoding='utf-8') as f:
+            parser.write(f)
+
+    # Second invocation: Directory gets removed (if workaround enabled)
+    quteproc_new.start(args + settings_args)
+    if reason is not None:
+        quteproc_new.wait_for(
+            message=(f'Removing service workers at {service_worker_dir} '
+                     f'(reason: {reason})'))
+
+    quteproc_new.send_cmd(':quit')
+    quteproc_new.wait_for_quit()
+
+    if reason is None:
+        assert service_worker_dir.exists()
+        quteproc_new.ensure_not_logged(message='Removing service workers at *')
+    else:
+        assert not service_worker_dir.exists()
+
+
+@utils.qt513  # Qt 5.12 doesn't store cookies immediately
+@pytest.mark.parametrize('store', [True, False])
+def test_cookies_store(quteproc_new, request, short_tmpdir, store):
+    # Start test process
+    args = _base_args(request.config) + [
+        '--basedir', str(short_tmpdir),
+        '-s', 'content.cookies.store', str(store),
+    ]
+    quteproc_new.start(args)
+
+    # Set cookie and ensure it's set
+    quteproc_new.open_path('cookies/set-custom?max_age=30', wait=False)
+    quteproc_new.wait_for_load_finished('cookies')
+    content = quteproc_new.get_content()
+    data = json.loads(content)
+    assert data == {'cookies': {'cookie': 'value'}}
+
+    # Restart
+    quteproc_new.send_cmd(':quit')
+    quteproc_new.wait_for_quit()
+    quteproc_new.start(args)
+
+    # Check cookies
+    quteproc_new.open_path('cookies')
+    content = quteproc_new.get_content()
+    data = json.loads(content)
+    expected_cookies = {'cookie': 'value'} if store else {}
+    assert data == {'cookies': expected_cookies}
+
+    quteproc_new.send_cmd(':quit')
+    quteproc_new.wait_for_quit()
+
+
+@pytest.mark.parametrize('filename, algorithm, colors', [
+    (
+        'blank',
+        'lightness-cielab',
+        {
+            '5.15': utils.Color(18, 18, 18),
+            '5.14': utils.Color(27, 27, 27),
+            'old': utils.Color(0, 0, 0),
+        }
+    ),
+    (
+        'blank',
+        'lightness-hsl',
+        {
+            '5.15': utils.Color(0, 0, 0),
+            '5.14': utils.Color(0, 0, 0),
+            'old': utils.Color(0, 0, 0),
+        }
+    ),
+    (
+        'blank',
+        'brightness-rgb',
+        {
+            '5.15': utils.Color(0, 0, 0),
+            '5.14': utils.Color(0, 0, 0),
+            'old': utils.Color(0, 0, 0),
+        }
+    ),
+
+    (
+        'yellow',
+        'lightness-cielab',
+        {
+            '5.15': utils.Color(35, 34, 0),
+            '5.14': utils.Color(35, 34, 0),
+            'old': utils.Color(204, 204, 0),
+        }
+    ),
+    (
+        'yellow',
+        'lightness-hsl',
+        {
+            '5.15': utils.Color(204, 204, 0),
+            '5.14': utils.Color(204, 204, 0),
+            'old': utils.Color(204, 204, 0),
+        }
+    ),
+    (
+        'yellow',
+        'brightness-rgb',
+        {
+            '5.15': utils.Color(0, 0, 204),
+            '5.14': utils.Color(0, 0, 204),
+            'old': utils.Color(0, 0, 204),
+        }
+    ),
+])
+def test_dark_mode(quteproc_new, request, algorithm, filename, colors):
+    if not request.config.webengine:
+        pytest.skip("QtWebEngine only")
+
+    args = _base_args(request.config) + [
+        '--temp-basedir',
+        '-s', 'colors.webpage.darkmode.enabled', 'true',
+        '-s', 'colors.webpage.darkmode.algorithm', algorithm,
+    ]
+    quteproc_new.start(args)
+
+    if qtutils.version_check('5.15', compiled=False):
+        expected = colors['5.15']
+    elif qtutils.version_check('5.14', compiled=False):
+        expected = colors['5.14']
+    else:
+        expected = colors['old']
+
+    quteproc_new.open_path(f'data/darkmode/{filename}.html')
+    for _ in range(3):
+        img = quteproc_new.get_screenshot()
+        # Position chosen by fair dice roll.
+        # https://xkcd.com/221/
+        color = utils.Color(img.pixelColor(4, 4))
+        if color == expected:
+            break
+
+        # Rendering might not be completed yet...
+        time.sleep(0.5)
+
+    # For pytest debug output
+    assert color == expected

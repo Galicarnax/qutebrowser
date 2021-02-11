@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """A HintManager to draw hints over links."""
 
@@ -1000,7 +1000,7 @@ class HintManager(QObject):
             self._context.first_run = False
 
     @cmdutils.register(instance='hintmanager', scope='window',
-                       modes=[usertypes.KeyMode.hint])
+                       modes=[usertypes.KeyMode.hint], deprecated_name='follow-hint')
     def hint_follow(self, select: bool = False, keystring: str = None) -> None:
         """Follow a hint.
 
@@ -1071,8 +1071,11 @@ class WordHinter:
                             hints.discard(word[:i + 1])
                         hints.add(word)
                     self.words.update(hints)
-            except IOError as e:
+            except OSError as e:
                 error = "Word hints requires reading the file at {}: {}"
+                raise HintingError(error.format(dictionary, str(e)))
+            except UnicodeDecodeError as e:
+                error = "Word hints expects the file at {} to be encoded as UTF-8: {}"
                 raise HintingError(error.format(dictionary, str(e)))
 
     def extract_tag_words(

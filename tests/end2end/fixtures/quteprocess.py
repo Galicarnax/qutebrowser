@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Fixtures to run qutebrowser in a QProcess and communicate."""
 
@@ -34,6 +34,7 @@ import json
 import yaml
 import pytest
 from PyQt5.QtCore import pyqtSignal, QUrl
+from PyQt5.QtGui import QImage
 
 from qutebrowser.misc import ipc
 from qutebrowser.utils import log, utils, javascript
@@ -60,7 +61,7 @@ def is_ignored_lowlevel_message(message):
         # ???
         'Xlib: sequence lost*',
         # Started appearing with Qt 5.8...
-        # http://patchwork.sourceware.org/patch/10255/
+        # https://patchwork.sourceware.org/patch/10255/
         ("*_dl_allocate_tls_init: Assertion `listp->slotinfo[cnt].gen <= "
          "GL(dl_tls_generation)' failed!*"),
         # ???
@@ -335,6 +336,13 @@ def is_ignored_chromium_message(line):
         'Accepting maxRetransmits = -1 for backwards compatibility',
         'Accepting maxRetransmitTime = -1 for backwards compatibility',
 
+        # Windows N:
+        # https://github.com/microsoft/playwright/issues/2901
+        ('DXVAVDA fatal error: could not LoadLibrary: *: The specified '
+         'module could not be found. (0x7E)'),
+
+        # Qt 5.15.3 dev build
+        r'Duplicate id found. Reassigning from * to *',
     ]
     return any(testutils.pattern_match(pattern=pattern, value=message)
                for pattern in ignored_messages)
@@ -879,6 +887,17 @@ class QuteProc(testprocess.Process):
 
             with open(path, 'r', encoding='utf-8') as f:
                 return f.read()
+
+    def get_screenshot(self):
+        """Get a screenshot of the current page."""
+        tmp_path = self.request.getfixturevalue('tmp_path')
+        path = tmp_path / 'screenshot.png'
+        self.send_cmd(f':screenshot --force {path}')
+        self.wait_for(message=f'Screenshot saved to {path}')
+
+        img = QImage(str(path))
+        assert not img.isNull()
+        return img
 
     def press_keys(self, keys):
         """Press the given keys using :fake-key."""

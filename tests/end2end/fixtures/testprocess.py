@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Base class for a subprocess run for tests."""
 
@@ -515,3 +515,4 @@ class Process(QObject):
         self.exit_expected = True
         with self._wait_signal(self.proc.finished, timeout=15000):
             pass
+        assert not self.is_running()
