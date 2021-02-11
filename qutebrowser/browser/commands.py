@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Command dispatcher for TabbedBrowser."""
 
@@ -915,7 +915,7 @@ class CommandDispatcher:
         return (tabbed_browser, tabbed_browser.widget.widget(idx-1))
 
     @cmdutils.register(instance='command-dispatcher', scope='window',
-                       maxsplit=0)
+                       maxsplit=0, deprecated_name='buffer')
     @cmdutils.argument('index', completion=miscmodels.tabs)
     @cmdutils.argument('count', value=cmdutils.Value.count)
     def tab_select(self, index=None, count=None):
@@ -1283,6 +1283,21 @@ class CommandDispatcher:
         message.info("Removed bookmark {}".format(url))
 
     @cmdutils.register(instance='command-dispatcher', scope='window')
+    def bookmark_list(self, jump=False, tab=True, bg=False, window=False):
+        """Show all bookmarks/quickmarks.
+
+        Args:
+            tab: Open in a new tab.
+            bg: Open in a background tab.
+            window: Open in a new window.
+            jump: Jump to the "bookmarks" header.
+        """
+        url = QUrl('qute://bookmarks/')
+        if jump:
+            url.setFragment('bookmarks')
+        self._open(url, tab, bg, window)
+
+    @cmdutils.register(instance='command-dispatcher', scope='window')
     def download(self, url=None, *, mhtml_=False, dest=None):
         """Download a given URL, or current page if no URL given.
 
@@ -1471,7 +1486,8 @@ class CommandDispatcher:
             objreg.last_focused_window(), alert=False))
         ed.edit(text, caret_position)
 
-    @cmdutils.register(instance='command-dispatcher', scope='window')
+    @cmdutils.register(instance='command-dispatcher', scope='window',
+                       deprecated_name='open-editor')
     def edit_text(self):
         """Open an external editor with the currently selected form field.
 

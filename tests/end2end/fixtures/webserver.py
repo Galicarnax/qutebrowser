@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Fixtures for the server webserver."""
 
@@ -75,6 +75,7 @@ class Request(testprocess.Line):
             '/absolute-redirect': [HTTPStatus.FOUND],
 
             '/cookies/set': [HTTPStatus.FOUND],
+            '/cookies/set-custom': [HTTPStatus.FOUND],
 
             '/500-inline': [HTTPStatus.INTERNAL_SERVER_ERROR],
             '/500': [HTTPStatus.INTERNAL_SERVER_ERROR],

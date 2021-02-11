@@ -82,18 +82,17 @@ The following software and libraries are required to run qutebrowser:
   - QtSQL (part of qtbase in some distributions)
   - QtOpenGL
   - QtWebEngine, or
-  - alternatively QtWebKit - only the
-    link:https://github.com/qtwebkit/qtwebkit/wiki[updated fork] (5.212) is
-    supported. **Note: The latest QtWebKit release is based on old WebKit
-    revision with known unpatched vulnerabilities. Please use it carefully and
-    avoid visiting untrusted websites and using it for transmission of
-    sensitive data.**
+  - alternatively QtWebKit (5.212) - **This is not recommended** due to known security
+    issues in QtWebKit, you most likely want to use qutebrowser with the
+    default QtWebEngine backend (based on Chromium) instead. Quoting the
+    https://github.com/qtwebkit/qtwebkit/releases[QtWebKit releases page]:
+    _[The latest QtWebKit] release is based on [an] old WebKit revision with known
+unpatched vulnerabilities. Please use it carefully and avoid visiting untrusted
+websites and using it for transmission of sensitive data._
 * https://www.riverbankcomputing.com/software/pyqt/intro[PyQt] 5.12.0 or newer
   for Python 3
-* https://pypi.python.org/pypi/setuptools/[pkg_resources/setuptools] (being
-  phased out for qutebrowser v2.0.0)
-* http://jinja.pocoo.org/[jinja2]
-* http://pygments.org/[pygments]
+* https://palletsprojects.com/p/jinja/[jinja2]
+* https://pygments.org/[pygments]
 * https://github.com/yaml/pyyaml[PyYAML]
 
 On older Python versions (3.6/3.7/3.8), the following backports are also required:
@@ -106,7 +105,7 @@ The following libraries are optional:
 * https://pypi.org/project/adblock/[adblock] (for improved adblocking using ABP syntax)
 * On Windows, https://pypi.python.org/pypi/colorama/[colorama] for colored log
   output.
-* http://asciidoc.org/[asciidoc] to generate the documentation for the `:help`
+* https://asciidoc.org/[asciidoc] to generate the documentation for the `:help`
   command, when using the git repository (rather than a release).
 
 See link:doc/install.asciidoc[the documentation] for directions on how to
@@ -185,7 +184,7 @@ Active
 
 * https://fanglingsu.github.io/vimb/[vimb] (C, GTK+ with WebKit2)
 * https://luakit.github.io/luakit/[luakit] (C/Lua, GTK+ with WebKit2)
-* https://nyxt.atlas.engineer/[Nyxt browser] (formerly "Next browser", Lisp, Emacs-like but also offers Vim bindings, QtWebKit or GTK+/WebKit2 - note there was a http://jgkamat.gitlab.io/blog/next-rce.html[critical remote code execution] which was handled quite badly)
+* https://nyxt.atlas.engineer/[Nyxt browser] (formerly "Next browser", Lisp, Emacs-like but also offers Vim bindings, QtWebKit or GTK+/WebKit2 - note there was a https://jgkamat.gitlab.io/blog/next-rce.html[critical remote code execution] which was handled quite badly)
 * https://vieb.dev/[Vieb] (JavaScript, Electron)
 * Chrome/Chromium addons:
   https://vimium.github.io/[Vimium],

@@ -16,7 +16,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Script to regenerate requirements files in misc/requirements."""
 
@@ -39,7 +39,7 @@ REQ_DIR = os.path.join(REPO_DIR, 'misc', 'requirements')
 
 CHANGELOG_URLS = {
     'pyparsing': 'https://github.com/pyparsing/pyparsing/blob/master/CHANGES',
-    'pylint': 'http://pylint.pycqa.org/en/latest/whatsnew/changelog.html',
+    'pylint': 'https://pylint.pycqa.org/en/latest/whatsnew/changelog.html',
     'isort': 'https://pycqa.github.io/isort/CHANGELOG/',
     'lazy-object-proxy': 'https://github.com/ionelmc/python-lazy-object-proxy/blob/master/CHANGELOG.rst',
     'mccabe': 'https://github.com/PyCQA/mccabe#changes',
@@ -74,8 +74,8 @@ CHANGELOG_URLS = {
     'snowballstemmer': 'https://github.com/snowballstem/snowball/blob/master/NEWS',
     'virtualenv': 'https://virtualenv.pypa.io/en/latest/changelog.html',
     'packaging': 'https://packaging.pypa.io/en/latest/changelog.html',
-    'build': 'https://github.com/pypa/build/commits/master',
-    'attrs': 'http://www.attrs.org/en/stable/changelog.html',
+    'build': 'https://github.com/pypa/build/blob/master/CHANGELOG.rst',
+    'attrs': 'https://www.attrs.org/en/stable/changelog.html',
     'Jinja2': 'https://github.com/pallets/jinja/blob/master/CHANGES.rst',
     'MarkupSafe': 'https://markupsafe.palletsprojects.com/en/1.1.x/changes/',
     'flake8': 'https://gitlab.com/pycqa/flake8/tree/master/docs/source/release-notes',
@@ -103,7 +103,7 @@ CHANGELOG_URLS = {
     'hunter': 'https://github.com/ionelmc/python-hunter/blob/master/CHANGELOG.rst',
     'uritemplate': 'https://github.com/python-hyper/uritemplate/blob/master/HISTORY.rst',
     'more-itertools': 'https://github.com/erikrose/more-itertools/blob/master/docs/versions.rst',
-    'pydocstyle': 'http://www.pydocstyle.org/en/latest/release_notes.html',
+    'pydocstyle': 'https://www.pydocstyle.org/en/latest/release_notes.html',
     'Sphinx': 'https://www.sphinx-doc.org/en/master/changes.html',
     'Babel': 'https://github.com/python-babel/babel/blob/master/CHANGES',
     'alabaster': 'https://alabaster.readthedocs.io/en/latest/changelog.html',
@@ -153,10 +153,8 @@ CHANGELOG_URLS = {
     'tldextract': 'https://github.com/john-kurkowski/tldextract/blob/master/CHANGELOG.md',
     'typing-extensions': 'https://github.com/python/typing/commits/master/typing_extensions',
     'diff-cover': 'https://github.com/Bachmann1234/diff_cover/blob/master/CHANGELOG',
-    'pytest-clarity': 'https://github.com/darrenburns/pytest-clarity/commits/master',
     'pytest-icdiff': 'https://github.com/hjwp/pytest-icdiff/blob/master/HISTORY.rst',
     'icdiff': 'https://github.com/jeffkaufman/icdiff/blob/master/ChangeLog',
-    'termcolor': 'https://pypi.org/project/termcolor/',
     'pprintpp': 'https://github.com/wolever/pprintpp/blob/master/CHANGELOG.txt',
     'beautifulsoup4': 'https://bazaar.launchpad.net/~leonardr/beautifulsoup/bs4/view/head:/CHANGELOG',
     'check-manifest': 'https://github.com/mgedmin/check-manifest/blob/master/CHANGES.rst',
@@ -176,6 +174,11 @@ CHANGELOG_URLS = {
     'adblock': 'https://github.com/ArniDagur/python-adblock/blob/master/CHANGELOG.md',
     'importlib-resources': 'https://importlib-resources.readthedocs.io/en/latest/history.html',
     'dataclasses': 'https://github.com/ericvsmith/dataclasses#release-history',
+    'pip': 'https://pip.pypa.io/en/stable/news/',
+    'wheel': 'https://wheel.readthedocs.io/en/stable/news.html',
+    'setuptools': 'https://setuptools.readthedocs.io/en/latest/history.html',
+    'semantic-version': 'https://github.com/rbarrois/python-semanticversion/blob/master/ChangeLog',
+    'setuptools-rust': 'https://github.com/PyO3/setuptools-rust/blob/master/CHANGELOG.md',
 }
 
 
@@ -365,6 +368,8 @@ def _get_changed_files():
 def parse_versioned_line(line):
     """Parse a requirements.txt line into name/version."""
     if '==' in line:
+        if line[0] == '#':  # ignored dependency
+            line = line[1:].strip()
         line = line.rsplit('#', maxsplit=1)[0]  # Strip comments
         name, version = line.split('==')
         if ';' in version:  # pip environment markers
@@ -382,10 +387,9 @@ def parse_versioned_line(line):
     return name, version
 
 
-def _get_changes():
+def _get_changes(diff):
     """Get a list of changed versions from git."""
     changes_dict = {}
-    diff = git_diff()
     for line in diff:
         if not line.startswith('-') and not line.startswith('+'):
             continue
@@ -407,18 +411,22 @@ def _get_changes():
 
 def print_changed_files():
     """Output all changed files from this run."""
+    diff = git_diff()
+    if utils.ON_CI:
+        with utils.gha_group('Raw diff'):
+            print('\n'.join(diff))
+
     changed_files = _get_changed_files()
     files_text = '\n'.join('- ' + line for line in changed_files)
 
-    changes = _get_changes()
-    diff_text = '\n'.join(str(change) for change in changes)
+    changes = _get_changes(diff)
+    changes_text = '\n'.join(str(change) for change in changes)
 
-    utils.print_title('Changed')
     utils.print_subtitle('Files')
     print(files_text)
     print()
-    utils.print_subtitle('Diff')
-    print(diff_text)
+    utils.print_subtitle('Changes')
+    print(changes_text)
 
     if utils.ON_CI:
         print()
@@ -466,7 +474,8 @@ def build_requirements(name):
                   requirements=filename,
                   pre=comments['pre'])
         with utils.gha_group('Freezing requirements'):
-            proc = run_pip(tmpdir, 'freeze', stdout=subprocess.PIPE)
+            args = ['--all'] if name == 'tox' else []
+            proc = run_pip(tmpdir, 'freeze', *args, stdout=subprocess.PIPE)
             reqs = proc.stdout.decode('utf-8')
             if utils.ON_CI:
                 print(reqs.strip())
@@ -551,6 +560,7 @@ def main():
     else:
         test_tox()
 
+    utils.print_title('Changed')
     print_changed_files()
 
 

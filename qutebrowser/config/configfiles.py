@@ -15,10 +15,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Configuration files residing on disk."""
 
+import enum
 import pathlib
 import types
 import os.path
@@ -51,6 +52,33 @@ state = cast('StateConfig', None)
 _SettingsType = Dict[str, Dict[str, Any]]
 
 
+class VersionChange(enum.Enum):
+
+    """The type of version change when comparing two versions."""
+
+    unknown = enum.auto()
+    equal = enum.auto()
+    downgrade = enum.auto()
+
+    patch = enum.auto()
+    minor = enum.auto()
+    major = enum.auto()
+
+    def matches_filter(self, filterstr: str) -> bool:
+        """Whether the change matches a given filter.
+
+        This is intended to use filters like "major" (show major only), "minor" (show
+        major/minor) or "patch" (show all changes).
+        """
+        allowed_values: Dict[str, List[VersionChange]] = {
+            'major': [VersionChange.major],
+            'minor': [VersionChange.major, VersionChange.minor],
+            'patch': [VersionChange.major, VersionChange.minor, VersionChange.patch],
+            'never': [],
+        }
+        return self in allowed_values[filterstr]
+
+
 class StateConfig(configparser.ConfigParser):
 
     """The "state" file saving various application state."""
@@ -59,15 +87,10 @@ class StateConfig(configparser.ConfigParser):
         super().__init__()
         self._filename = os.path.join(standarddir.data(), 'state')
         self.read(self._filename, encoding='utf-8')
-        qt_version = qVersion()
-        # We handle this here, so we can avoid setting qt_version_changed if
-        # the config is brand new, but can still set it when qt_version wasn't
-        # there before...
-        if 'general' in self:
-            old_qt_version = self['general'].get('qt_version', None)
-            self.qt_version_changed = old_qt_version != qt_version
-        else:
-            self.qt_version_changed = False
+
+        self.qt_version_changed = False
+        self.qutebrowser_version_changed = VersionChange.unknown
+        self._set_changed_attributes()
 
         for sect in ['general', 'geometry', 'inspector']:
             try:
@@ -84,8 +107,46 @@ class StateConfig(configparser.ConfigParser):
         for sect, key in deleted_keys:
             self[sect].pop(key, None)
 
-        self['general']['qt_version'] = qt_version
+        self['general']['qt_version'] = qVersion()
         self['general']['version'] = qutebrowser.__version__
+
+    def _set_changed_attributes(self) -> None:
+        """Set qt_version_changed/qutebrowser_version_changed attributes.
+
+        We handle this here, so we can avoid setting qt_version_changed if
+        the config is brand new, but can still set it when qt_version wasn't
+        there before...
+        """
+        if 'general' not in self:
+            return
+
+        old_qt_version = self['general'].get('qt_version', None)
+        self.qt_version_changed = old_qt_version != qVersion()
+
+        old_qutebrowser_version = self['general'].get('version', None)
+        if old_qutebrowser_version is None:
+            # https://github.com/python/typeshed/issues/2093
+            return  # type: ignore[unreachable]
+
+        old_version = utils.parse_version(old_qutebrowser_version)
+        new_version = utils.parse_version(qutebrowser.__version__)
+
+        if old_version.isNull():
+            log.init.warning(f"Unable to parse old version {old_qutebrowser_version}")
+            return
+
+        assert not new_version.isNull(), qutebrowser.__version__
+
+        if old_version == new_version:
+            self.qutebrowser_version_changed = VersionChange.equal
+        elif new_version < old_version:
+            self.qutebrowser_version_changed = VersionChange.downgrade
+        elif old_version.segments()[:2] == new_version.segments()[:2]:
+            self.qutebrowser_version_changed = VersionChange.patch
+        elif old_version.majorVersion() == new_version.majorVersion():
+            self.qutebrowser_version_changed = VersionChange.minor
+        else:
+            self.qutebrowser_version_changed = VersionChange.major
 
     def init_save_manager(self,
                           save_manager: 'savemanager.SaveManager') -> None:
@@ -530,17 +591,24 @@ class ConfigAPI:
     Attributes:
         _config: The main Config object to use.
         _keyconfig: The KeyConfig object.
+        _warn_autoconfig: Whether to warn if autoconfig.yml wasn't loaded.
         errors: Errors which occurred while setting options.
         configdir: The qutebrowser config directory, as pathlib.Path.
         datadir: The qutebrowser data directory, as pathlib.Path.
     """
 
-    def __init__(self, conf: config.Config, keyconfig: config.KeyConfig):
+    def __init__(
+            self,
+            conf: config.Config,
+            keyconfig: config.KeyConfig,
+            warn_autoconfig: bool,
+    ):
         self._config = conf
         self._keyconfig = keyconfig
         self.errors: List[configexc.ConfigErrorDesc] = []
         self.configdir = pathlib.Path(standarddir.config())
         self.datadir = pathlib.Path(standarddir.data())
+        self._warn_autoconfig = warn_autoconfig
 
     @contextlib.contextmanager
     def _handle_error(self, action: str, name: str) -> Iterator[None]:
@@ -563,7 +631,7 @@ class ConfigAPI:
 
     def finalize(self) -> None:
         """Do work which needs to be done after reading config.py."""
-        if self._config.warn_autoconfig:
+        if self._warn_autoconfig:
             desc = configexc.ConfigErrorDesc(
                 "autoconfig loading not specified",
                 ("Your config.py should call either `config.load_autoconfig()`"
@@ -574,7 +642,7 @@ class ConfigAPI:
 
     def load_autoconfig(self, load_config: bool = True) -> None:
         """Load the autoconfig.yml file which is used for :set/:bind/etc."""
-        self._config.warn_autoconfig = False
+        self._warn_autoconfig = False
         if load_config:
             with self._handle_error('reading', 'autoconfig.yml'):
                 read_autoconfig()
@@ -754,18 +822,27 @@ class ConfigPyWriter:
             yield ''
 
 
-def read_config_py(filename: str, raising: bool = False) -> None:
+def read_config_py(
+        filename: str,
+        raising: bool = False,
+        warn_autoconfig: bool = False,
+) -> None:
     """Read a config.py file.
 
     Arguments;
         filename: The name of the file to read.
         raising: Raise exceptions happening in config.py.
                  This is needed during tests to use pytest's inspection.
+        warn_autoconfig: Whether to warn if config.load_autoconfig() wasn't specified.
     """
     assert config.instance is not None
     assert config.key_instance is not None
 
-    api = ConfigAPI(config.instance, config.key_instance)
+    api = ConfigAPI(
+        config.instance,
+        config.key_instance,
+        warn_autoconfig=warn_autoconfig,
+    )
     container = config.ConfigContainer(config.instance, configapi=api)
     basename = os.path.basename(filename)
 

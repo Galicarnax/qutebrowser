@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Bridge from QWebEngineSettings to our own settings.
 
@@ -257,6 +257,7 @@ class ProfileSetter:
         self.set_http_headers()
         self.set_http_cache_size()
         self._set_hardcoded_settings()
+        self.set_persistent_cookie_policy()
         self.set_dictionary_language()
 
     def _set_hardcoded_settings(self):

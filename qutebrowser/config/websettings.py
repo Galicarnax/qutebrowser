@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Bridge from QWeb(Engine)Settings to our own settings."""
 
@@ -46,6 +46,7 @@ class UserAgent:
     upstream_browser_key: str
     upstream_browser_version: str
     qt_key: str
+    qt_version: Optional[str]
 
     @classmethod
     def parse(cls, ua: str) -> 'UserAgent':
@@ -70,12 +71,14 @@ class UserAgent:
             raise ValueError("Invalid upstream browser key: {}".format(ua))
 
         upstream_browser_version = versions[upstream_browser_key]
+        qt_version = versions.get(qt_key)
 
         return cls(os_info=os_info,
                    webkit_version=webkit_version,
                    upstream_browser_key=upstream_browser_key,
                    upstream_browser_version=upstream_browser_version,
-                   qt_key=qt_key)
+                   qt_key=qt_key,
+                   qt_version=qt_version)
 
 
 class AttributeInfo:

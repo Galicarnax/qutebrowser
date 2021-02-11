@@ -6,7 +6,7 @@ Documentation
 
 The following help pages are currently available:
 
-* https://raw.githubusercontent.com/qutebrowser/qutebrowser/master/doc/img/cheatsheet-big.png[Key binding cheatsheet (hosted on GitHub)]
+* link:https://raw.githubusercontent.com/qutebrowser/qutebrowser/master/doc/img/cheatsheet-big.png[Key binding cheatsheet (hosted on GitHub)]
 * link:../quickstart{outfilesuffix}[Quick start guide]
 * link:../faq{outfilesuffix}[Frequently asked questions]
 * link:../changelog{outfilesuffix}[Change Log]
@@ -66,4 +66,4 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with this program.  If not, see <https://www.gnu.org/licenses/>.

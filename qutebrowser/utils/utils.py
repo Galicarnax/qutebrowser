@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Other utilities which don't fit anywhere else."""
 
@@ -32,12 +32,12 @@ import functools
 import contextlib
 import posixpath
 import shlex
-import glob
 import mimetypes
+import pathlib
 import ctypes
 import ctypes.util
 from typing import (Any, Callable, IO, Iterator, Optional, Sequence, Tuple, Type, Union,
-                    TYPE_CHECKING, cast)
+                    Iterable, TypeVar, TYPE_CHECKING)
 try:
     # Protocol was added in Python 3.8
     from typing import Protocol
@@ -47,8 +47,7 @@ except ImportError:  # pragma: no cover
 
             """Empty stub at runtime."""
 
-
-from PyQt5.QtCore import QUrl, QVersionNumber
+from PyQt5.QtCore import QUrl, QVersionNumber, QRect
 from PyQt5.QtGui import QClipboard, QDesktopServices
 from PyQt5.QtWidgets import QApplication
 # We cannot use the stdlib version on 3.7-3.8 because we need the files() API.
@@ -56,7 +55,6 @@ if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
 else:  # pragma: no cover
     import importlib_resources
-import pkg_resources
 import yaml
 try:
     from yaml import (CSafeLoader as YamlLoader,
@@ -80,23 +78,40 @@ is_linux = sys.platform.startswith('linux')
 is_windows = sys.platform.startswith('win')
 is_posix = os.name == 'posix'
 
+_C = TypeVar("_C", bound="Comparable")
 
-class SupportsLessThan(Protocol):
+
+class Comparable(Protocol):
 
     """Protocol for a "comparable" object."""
 
-    def __lt__(self, other: Any) -> bool:
+    def __lt__(self: _C, other: _C) -> bool:
+        ...
+
+    def __ge__(self: _C, other: _C) -> bool:
         ...
 
 
 if TYPE_CHECKING:
-    class VersionNumber(SupportsLessThan, QVersionNumber):
+    class VersionNumber(Comparable, QVersionNumber):
 
         """WORKAROUND for incorrect PyQt stubs."""
 else:
-    class VersionNumber:
+    class VersionNumber(QVersionNumber):
 
         """We can't inherit from Protocol and QVersionNumber at runtime."""
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            normalized = self.normalized()
+            if normalized != self:
+                raise ValueError(
+                    f"Refusing to construct non-normalized version from {args} "
+                    f"(normalized: {tuple(normalized.segments())}).")
+
+        def __repr__(self):
+            args = ", ".join(str(s) for s in self.segments())
+            return f'VersionNumber({args})'
 
 
 class Unreachable(Exception):
@@ -181,71 +196,108 @@ def compact_text(text: str, elidelength: int = None) -> str:
     return out
 
 
+def _resource_path(filename: str) -> pathlib.Path:
+    """Get a pathlib.Path object for a resource."""
+    assert not posixpath.isabs(filename), filename
+    assert os.path.pardir not in filename.split(posixpath.sep), filename
+
+    if hasattr(sys, 'frozen'):
+        # For PyInstaller, where we can't store resource files in a qutebrowser/ folder
+        # because the executable is already named "qutebrowser" (at least on macOS).
+        return pathlib.Path(sys.executable).parent / filename
+
+    return importlib_resources.files(qutebrowser) / filename
+
+
+@contextlib.contextmanager
+def _resource_keyerror_workaround() -> Iterator[None]:
+    """Re-raise KeyErrors as FileNotFoundErrors.
+
+    WORKAROUND for zipfile.Path resources raising KeyError when a file was notfound:
+    https://bugs.python.org/issue43063
+
+    Only needed for Python 3.8 and 3.9.
+    """
+    try:
+        yield
+    except KeyError as e:
+        raise FileNotFoundError(str(e))
+
+
+def _glob_resources(
+    resource_path: pathlib.Path,
+    subdir: str,
+    ext: str,
+) -> Iterable[str]:
+    """Find resources with the given extension.
+
+    Yields a resource name like "html/log.html" (as string).
+    """
+    assert '*' not in ext, ext
+    assert ext.startswith('.'), ext
+    path = resource_path / subdir
+
+    if isinstance(resource_path, pathlib.Path):
+        for full_path in path.glob(f'*{ext}'):  # . is contained in ext
+            yield full_path.relative_to(resource_path).as_posix()
+    else:  # zipfile.Path or importlib_resources compat object
+        # Unfortunately, we can't tell mypy about resource_path being of type
+        # Union[pathlib.Path, zipfile.Path] because we set "python_version = 3.6" in
+        # .mypy.ini, but the zipfiel stubs (correctly) only declare zipfile.Path with
+        # Python 3.8...
+        assert path.is_dir(), path  # type: ignore[unreachable]
+        for subpath in path.iterdir():
+            if subpath.name.endswith(ext):
+                yield posixpath.join(subdir, subpath.name)
+
+
 def preload_resources() -> None:
     """Load resource files into the cache."""
-    for subdir, pattern in [('html', '*.html'), ('javascript', '*.js')]:
-        path = resource_filename(subdir)
-        for full_path in glob.glob(os.path.join(path, pattern)):
-            sub_path = '/'.join([subdir, os.path.basename(full_path)])
-            _resource_cache[sub_path] = read_file(sub_path)
+    resource_path = _resource_path('')
+    for subdir, ext in [
+            ('html', '.html'),
+            ('javascript', '.js'),
+            ('javascript/quirks', '.js'),
+    ]:
+        for name in _glob_resources(resource_path, subdir, ext):
+            _resource_cache[name] = read_file(name)
 
 
-# FIXME:typing Return value should be bytes/str
-def read_file(filename: str, binary: bool = False) -> Any:
+def read_file(filename: str) -> str:
     """Get the contents of a file contained with qutebrowser.
 
     Args:
         filename: The filename to open as string.
-        binary: Whether to return a binary string.
-                If False, the data is UTF-8-decoded.
 
     Return:
         The file contents as string.
     """
-    assert not posixpath.isabs(filename), filename
-    assert os.path.pardir not in filename.split(posixpath.sep), filename
-
-    if not binary and filename in _resource_cache:
+    if filename in _resource_cache:
         return _resource_cache[filename]
 
-    if hasattr(sys, 'frozen'):
-        # PyInstaller doesn't support pkg_resources :(
-        # https://github.com/pyinstaller/pyinstaller/wiki/FAQ#misc
-        fn = os.path.join(os.path.dirname(sys.executable), filename)
-        if binary:
-            f: IO
-            with open(fn, 'rb') as f:
-                return f.read()
-        else:
-            with open(fn, 'r', encoding='utf-8') as f:
-                return f.read()
-    else:
-        p = importlib_resources.files(qutebrowser) / filename
-
-        if binary:
-            return p.read_bytes()
-
-        return p.read_text()
+    path = _resource_path(filename)
+    with _resource_keyerror_workaround():
+        return path.read_text(encoding='utf-8')
 
 
-def resource_filename(filename: str) -> str:
-    """Get the absolute filename of a file contained with qutebrowser.
+def read_file_binary(filename: str) -> bytes:
+    """Get the contents of a binary file contained with qutebrowser.
 
     Args:
-        filename: The filename.
+        filename: The filename to open as string.
 
     Return:
-        The absolute filename.
+        The file contents as a bytes object.
     """
-    if hasattr(sys, 'frozen'):
-        return os.path.join(os.path.dirname(sys.executable), filename)
-    return pkg_resources.resource_filename(qutebrowser.__name__, filename)
+    path = _resource_path(filename)
+    with _resource_keyerror_workaround():
+        return path.read_bytes()
 
 
 def parse_version(version: str) -> VersionNumber:
     """Parse a version string."""
-    v_q, _suffix = QVersionNumber.fromString(version)
-    return cast(VersionNumber, v_q.normalized())
+    ver, _suffix = QVersionNumber.fromString(version)
+    return VersionNumber(ver.normalized())
 
 
 def format_seconds(total_seconds: int) -> str:
@@ -267,7 +319,7 @@ def format_seconds(total_seconds: int) -> str:
 def format_size(size: Optional[float], base: int = 1024, suffix: str = '') -> str:
     """Format a byte size so it's human readable.
 
-    Inspired by http://stackoverflow.com/q/1094841
+    Inspired by https://stackoverflow.com/q/1094841
     """
     prefixes = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
     if size is None:
@@ -854,3 +906,31 @@ def cleanup_file(filepath: str) -> Iterator[None]:
             os.remove(filepath)
         except OSError as e:
             log.misc.error(f"Failed to delete tempfile {filepath} ({e})!")
+
+
+_RECT_PATTERN = re.compile(r'(?P<w>\d+)x(?P<h>\d+)\+(?P<x>\d+)\+(?P<y>\d+)')
+
+
+def parse_rect(s: str) -> QRect:
+    """Parse a rectangle string like 20x20+5+3.
+
+    Negative offsets aren't supported, and neither is leaving off parts of the string.
+    """
+    match = _RECT_PATTERN.match(s)
+    if not match:
+        raise ValueError(f"String {s} does not match WxH+X+Y")
+
+    w = int(match.group('w'))
+    h = int(match.group('h'))
+    x = int(match.group('x'))
+    y = int(match.group('y'))
+
+    try:
+        rect = QRect(x, y, w, h)
+    except OverflowError as e:
+        raise ValueError(e)
+
+    if not rect.isValid():
+        raise ValueError("Invalid rectangle")
+
+    return rect

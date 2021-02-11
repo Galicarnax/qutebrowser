@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 """Test the SQL API."""
 
@@ -225,11 +225,6 @@ def test_delete(qtbot):
     with qtbot.waitSignal(table.changed):
         table.delete('lucky', False)
     assert not list(table)
-
-
-def test_delete_optional(qtbot):
-    table = sql.SqlTable('Foo', ['name', 'val'])
-    table.delete('name', 'doesnotexist', optional=True)
 
 
 def test_len():

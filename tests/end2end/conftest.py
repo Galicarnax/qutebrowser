@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <http://www.gnu.org/licenses/>.
+# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
 # pylint: disable=unused-import
 
@@ -167,6 +167,11 @@ def pytest_collection_modifyitems(config, items):
          'Skipped with QtWebKit if PDF image plugin is available',
          pytest.mark.skipif,
          not config.webengine and qpdf_image_plugin.exists()),
+        ('windows_skip',
+         'Skipped on Windows',
+         pytest.mark.skipif,
+         utils.is_windows),
+
     ]
 
     for item in items:
