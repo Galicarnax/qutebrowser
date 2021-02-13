@@ -21,7 +21,7 @@
 
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QSize
-from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtGui import QKeyEvent, QFontMetrics
 from PyQt5.QtWidgets import QSizePolicy, QWidget, QProxyStyle
 
 from qutebrowser.keyinput import modeman, modeparsers
@@ -87,14 +87,14 @@ class Command(misc.MinimalLineEditMixin, misc.CommandLineEdit):
             self.history.changed.connect(command_history.changed)
         self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Ignored)
 
-        style = LineEditStyle(self.style(), 26)
-        self.setStyle(style)
-
         self.cursorPositionChanged.connect(self.update_completion)
         self.textChanged.connect(self.update_completion)
         self.textChanged.connect(self.updateGeometry)
         self.textChanged.connect(self._incremental_search)
 
+        qfm = QFontMetrics(self.font())
+        style = LineEditStyle(self.style(), 3*qfm.averageCharWidth())
+        self.setStyle(style)
 
 
 
