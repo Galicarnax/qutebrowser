@@ -25,13 +25,12 @@ import sys
 import logging
 import re
 import json
-import time
 
 import pytest
-from PyQt5.QtCore import QProcess
+from PyQt5.QtCore import QProcess, QPoint
 
-from helpers import utils
-from qutebrowser.utils import qtutils
+from helpers import utils as testutils
+from qutebrowser.utils import qtutils, utils
 
 
 ascii_locale = pytest.mark.skipif(sys.hexversion >= 0x03070000,
@@ -48,7 +47,7 @@ def _base_args(config):
         args += ['--backend', 'webkit']
 
     if config.webengine:
-        args += utils.seccomp_args(qt_flag=True)
+        args += testutils.seccomp_args(qt_flag=True)
 
     args.append('about:blank')
     return args
@@ -426,24 +425,110 @@ def test_referrer(quteproc_new, server, server2, request, value, expected):
     assert headers.get('Referer') == expected
 
 
+def test_preferred_colorscheme_unsupported(request, quteproc_new):
+    """Test versions without preferred-color-scheme support."""
+    if request.config.webengine and qtutils.version_check('5.14'):
+        pytest.skip("preferred-color-scheme is supported")
+
+    args = _base_args(request.config) + ['--temp-basedir']
+    quteproc_new.start(args)
+    quteproc_new.open_path('data/darkmode/prefers-color-scheme.html')
+    content = quteproc_new.get_content()
+    assert content == "Preference support missing."
+
+
 @pytest.mark.qtwebkit_skip
-@utils.qt514
-def test_preferred_colorscheme(request, quteproc_new):
+@testutils.qt514
+@pytest.mark.parametrize('value', ["dark", "light", "auto", None])
+def test_preferred_colorscheme(request, quteproc_new, value):
     """Make sure the the preferred colorscheme is set."""
+    args = _base_args(request.config) + ['--temp-basedir']
+    if value is not None:
+        args += ['-s', 'colors.webpage.preferred_color_scheme', value]
+    quteproc_new.start(args)
+
+    dark_text = "Dark preference detected."
+    light_text = "Light preference detected."
+
+    expected_values = {
+        "dark": [dark_text],
+        "light": [light_text],
+
+        # Depends on the environment the test is running in.
+        "auto": [dark_text, light_text],
+        None: [dark_text, light_text],
+    }
+    xfail = False
+    if not qtutils.version_check('5.15.2', compiled=False):
+        # On older versions, "light" is not supported, so the result will depend on the
+        # environment.
+        expected_values["light"].append(dark_text)
+    elif qtutils.version_check('5.15.2', exact=True, compiled=False):
+        # Test the WORKAROUND https://bugreports.qt.io/browse/QTBUG-89753
+        # With that workaround, we should always get the light preference.
+        for key in ["auto", None]:
+            expected_values[key].remove(dark_text)
+        xfail = value in ["auto", None]
+
+    quteproc_new.open_path('data/darkmode/prefers-color-scheme.html')
+    content = quteproc_new.get_content()
+    assert content in expected_values[value]
+
+    if xfail:
+        # Unsatisfactory result, but expected based on a Qt bug.
+        pytest.xfail("QTBUG-89753")
+
+
+@testutils.qt514
+def test_preferred_colorscheme_with_dark_mode(
+        request, quteproc_new, webengine_versions):
+    """Test interaction between preferred-color-scheme and dark mode."""
     args = _base_args(request.config) + [
         '--temp-basedir',
-        '-s', 'colors.webpage.prefers_color_scheme_dark', 'true',
+        '-s', 'colors.webpage.preferred_color_scheme', 'dark',
+        '-s', 'colors.webpage.darkmode.enabled', 'true',
+        '-s', 'colors.webpage.darkmode.algorithm', 'brightness-rgb',
     ]
     quteproc_new.start(args)
 
-    quteproc_new.send_cmd(':jseval matchMedia("(prefers-color-scheme: dark)").matches')
-    quteproc_new.wait_for(message='True')
+    quteproc_new.open_path('data/darkmode/prefers-color-scheme.html')
+    content = quteproc_new.get_content()
+
+    if webengine_versions.webengine == utils.VersionNumber(5, 15, 3):
+        # https://bugs.chromium.org/p/chromium/issues/detail?id=1177973
+        # No workaround known.
+        expected_text = 'Light preference detected.'
+        # light website color, inverted by darkmode
+        expected_color = testutils.Color(127, 127, 127)
+        xfail = True
+    elif webengine_versions.webengine == utils.VersionNumber(5, 15, 2):
+        # Our workaround breaks when dark mode is enabled...
+        # Also, for some reason, dark mode doesn't work on that page either!
+        expected_text = 'No preference detected.'
+        expected_color = testutils.Color(0, 170, 0)  # green
+        xfail = True
+    else:
+        # Qt 5.14 and 5.15.0/.1 work correctly.
+        # Hopefully, so does Qt 6.x in the future?
+        expected_text = 'Dark preference detected.'
+        expected_color = testutils.Color(34, 34, 34)  # dark website color
+        xfail = False
+
+    pos = QPoint(0, 0)
+    img = quteproc_new.get_screenshot(probe_pos=pos, probe_color=expected_color)
+    color = testutils.Color(img.pixelColor(pos))
+
+    assert content == expected_text
+    assert color == expected_color
+    if xfail:
+        # We still do some checks, but we want to mark the test outcome as xfail.
+        pytest.xfail("QTBUG-89753")
 
 
 @pytest.mark.qtwebkit_skip
 @pytest.mark.parametrize('reason', [
     'Explicitly enabled',
-    pytest.param('Qt 5.14', marks=utils.qt514),
+    pytest.param('Qt 5.14', marks=testutils.qt514),
     'Qt version changed',
     None,
 ])
@@ -494,7 +579,7 @@ def test_service_worker_workaround(
         assert not service_worker_dir.exists()
 
 
-@utils.qt513  # Qt 5.12 doesn't store cookies immediately
+@testutils.qt513  # Qt 5.12 doesn't store cookies immediately
 @pytest.mark.parametrize('store', [True, False])
 def test_cookies_store(quteproc_new, request, short_tmpdir, store):
     # Start test process
@@ -532,62 +617,28 @@ def test_cookies_store(quteproc_new, request, short_tmpdir, store):
         'blank',
         'lightness-cielab',
         {
-            '5.15': utils.Color(18, 18, 18),
-            '5.14': utils.Color(27, 27, 27),
-            'old': utils.Color(0, 0, 0),
+            '5.15': testutils.Color(18, 18, 18),
+            '5.14': testutils.Color(27, 27, 27),
+            None: testutils.Color(0, 0, 0),
         }
     ),
-    (
-        'blank',
-        'lightness-hsl',
-        {
-            '5.15': utils.Color(0, 0, 0),
-            '5.14': utils.Color(0, 0, 0),
-            'old': utils.Color(0, 0, 0),
-        }
-    ),
-    (
-        'blank',
-        'brightness-rgb',
-        {
-            '5.15': utils.Color(0, 0, 0),
-            '5.14': utils.Color(0, 0, 0),
-            'old': utils.Color(0, 0, 0),
-        }
-    ),
+    ('blank', 'lightness-hsl', {None: testutils.Color(0, 0, 0)}),
+    ('blank', 'brightness-rgb', {None: testutils.Color(0, 0, 0)}),
 
     (
         'yellow',
         'lightness-cielab',
         {
-            '5.15': utils.Color(35, 34, 0),
-            '5.14': utils.Color(35, 34, 0),
-            'old': utils.Color(204, 204, 0),
+            '5.15': testutils.Color(35, 34, 0),
+            '5.14': testutils.Color(35, 34, 0),
+            None: testutils.Color(204, 204, 0),
         }
     ),
-    (
-        'yellow',
-        'lightness-hsl',
-        {
-            '5.15': utils.Color(204, 204, 0),
-            '5.14': utils.Color(204, 204, 0),
-            'old': utils.Color(204, 204, 0),
-        }
-    ),
-    (
-        'yellow',
-        'brightness-rgb',
-        {
-            '5.15': utils.Color(0, 0, 204),
-            '5.14': utils.Color(0, 0, 204),
-            'old': utils.Color(0, 0, 204),
-        }
-    ),
+    ('yellow', 'lightness-hsl', {None: testutils.Color(204, 204, 0)}),
+    ('yellow', 'brightness-rgb', {None: testutils.Color(0, 0, 204)}),
 ])
-def test_dark_mode(quteproc_new, request, algorithm, filename, colors):
-    if not request.config.webengine:
-        pytest.skip("QtWebEngine only")
-
+def test_dark_mode(webengine_versions, quteproc_new, request,
+                   filename, algorithm, colors):
     args = _base_args(request.config) + [
         '--temp-basedir',
         '-s', 'colors.webpage.darkmode.enabled', 'true',
@@ -595,24 +646,17 @@ def test_dark_mode(quteproc_new, request, algorithm, filename, colors):
     ]
     quteproc_new.start(args)
 
-    if qtutils.version_check('5.15', compiled=False):
-        expected = colors['5.15']
-    elif qtutils.version_check('5.14', compiled=False):
-        expected = colors['5.14']
-    else:
-        expected = colors['old']
+    ver = webengine_versions.webengine
+    minor_version = f'{ver.majorVersion()}.{ver.minorVersion()}'
+    expected = colors.get(minor_version, colors[None])
 
     quteproc_new.open_path(f'data/darkmode/{filename}.html')
-    for _ in range(3):
-        img = quteproc_new.get_screenshot()
-        # Position chosen by fair dice roll.
-        # https://xkcd.com/221/
-        color = utils.Color(img.pixelColor(4, 4))
-        if color == expected:
-            break
 
-        # Rendering might not be completed yet...
-        time.sleep(0.5)
+    # Position chosen by fair dice roll.
+    # https://xkcd.com/221/
+    pos = QPoint(4, 4)
+    img = quteproc_new.get_screenshot(probe_pos=pos, probe_color=expected)
 
+    color = testutils.Color(img.pixelColor(pos))
     # For pytest debug output
     assert color == expected

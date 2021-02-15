@@ -33,8 +33,8 @@ import json
 
 import yaml
 import pytest
-from PyQt5.QtCore import pyqtSignal, QUrl
-from PyQt5.QtGui import QImage
+from PyQt5.QtCore import pyqtSignal, QUrl, QPoint
+from PyQt5.QtGui import QImage, QColor
 
 from qutebrowser.misc import ipc
 from qutebrowser.utils import log, utils, javascript
@@ -888,16 +888,39 @@ class QuteProc(testprocess.Process):
             with open(path, 'r', encoding='utf-8') as f:
                 return f.read()
 
-    def get_screenshot(self):
-        """Get a screenshot of the current page."""
-        tmp_path = self.request.getfixturevalue('tmp_path')
-        path = tmp_path / 'screenshot.png'
-        self.send_cmd(f':screenshot --force {path}')
-        self.wait_for(message=f'Screenshot saved to {path}')
+    def get_screenshot(
+            self,
+            *,
+            probe_pos: QPoint = None,
+            probe_color: QColor = testutils.Color(0, 0, 0),
+    ) -> QImage:
+        """Get a screenshot of the current page.
 
-        img = QImage(str(path))
-        assert not img.isNull()
-        return img
+        Arguments:
+            probe: If given, only continue if the pixel at the given position isn't
+                   black (or whatever is specified by probe_color).
+        """
+        for _ in range(5):
+            tmp_path = self.request.getfixturevalue('tmp_path')
+            path = tmp_path / 'screenshot.png'
+            self.send_cmd(f':screenshot --force {path}')
+            self.wait_for(message=f'Screenshot saved to {path}')
+
+            img = QImage(str(path))
+            assert not img.isNull()
+
+            if probe_pos is None:
+                return img
+
+            probed_color = testutils.Color(img.pixelColor(probe_pos))
+            if probed_color == probe_color:
+                return img
+
+            # Rendering might not be completed yet...
+            time.sleep(0.5)
+
+        raise ValueError(
+            f"Pixel probing for {probe_color} failed (got {probed_color} on last try)")
 
     def press_keys(self, keys):
         """Press the given keys using :fake-key."""
