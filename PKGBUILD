@@ -4,7 +4,7 @@
 # vim: set ts=4 sw=4 et ft=sh:
 
 pkgname=qutebrowser-galicarnax
-pkgver=2.0.2.r167.g50380683a
+pkgver=2.0.2.r168.gf8666de1e
 pkgrel=1
 pkgdesc="A keyboard-driven, vim-like browser based on PyQt5"
 arch=("any")
