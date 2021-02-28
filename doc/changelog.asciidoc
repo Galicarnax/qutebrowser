@@ -24,11 +24,14 @@ Added
 
 - New `:screenshot` command which can be used to screenshot the visible part of
   the page.
+- New optional dependency on the `importlib_metadata` project on Python 3.7 and
+  below. This is only relevant when PyQtWebEngine is installed via pip - thus,
+  this dependency usually isn't relevant for packagers.
 
 Changed
 ~~~~~~~
 
-- Initial support for Qt 5.15.3
+- Initial support for Qt 5.15.3 and PyQt 5.15.3
 - The `colors.webpage.prefers_color_scheme_dark` setting got renamed to
   `colors.webpage.preferred_color_scheme` and now takes the values `auto`, `light`
   and `dark` (instead of being `True` for dark and `False` for auto).
@@ -40,6 +43,9 @@ Changed
   versions of QtWebEngine/PyQtWebEngine/Qt.
   This change also prepares qutebrowser for QtWebEngine 5.15.3, which will get
   released without an updated Qt.
+- When PyQtWebEngine >= 5.15.3 is installed via `pip` (as is e.g. the case with
+  `mkvenv.py`), qutebrowser now queries the associated metadata to find out the
+  QtWebEngine version.
 
 Fixed
 ~~~~~
@@ -53,7 +59,18 @@ Fixed
   query is broken and always returns `no-preference`, which was removed from the
   CSS WG Specification. This release contains a workaround to always return
   `light` instead (as per the spec).
-
+- When an external file selector deletes the temporary file (like `nnn` does
+  when quitting the terminal), qutebrowser would crash. It now displays an
+  error instead. The same applies if the temporary file is unreadable for any
+  other reason.
+- On macOS, a change in v2.0.x caused certain shortcuts to not work with Cmd
+  anymore, using Ctrl instead. They now work correctly using Cmd (like usual on
+  macOS) again.
+- On macOS, using `F` (`hint all tab`) sometimes would open a context menu
+  instead of following a link. This is now fixed.
+- The quirk added for a missing `String.replaceAll` did not handle special
+  regexp characters correctly, thus breaking some sites. It now handles them
+  properly.
 
 [[v2.0.2]]
 v2.0.2 (2021-02-04)
