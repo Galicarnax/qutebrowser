@@ -28,6 +28,7 @@ import jinja2
 from PyQt5.QtCore import QUrl
 
 import qutebrowser
+from qutebrowser.utils import usertypes
 
 
 class JSTester:
@@ -65,14 +66,14 @@ class JSTester:
         template = self._jinja_env.get_template(path)
 
         try:
-            with self.qtbot.waitSignal(self.tab.load_finished,
+            with self.qtbot.wait_signal(self.tab.load_finished,
                                        timeout=2000) as blocker:
                 self.tab.set_html(template.render(**kwargs), base_url=base_url)
         except self.qtbot.TimeoutError:
             # Sometimes this fails for some odd reason on macOS, let's just try
             # again.
             print("Trying to load page again...")
-            with self.qtbot.waitSignal(self.tab.load_finished,
+            with self.qtbot.wait_signal(self.tab.load_finished,
                                        timeout=2000) as blocker:
                 self.tab.set_html(template.render(**kwargs), base_url=base_url)
 
@@ -95,7 +96,7 @@ class JSTester:
             url: The QUrl to load.
             force: Whether to force loading even if the file is invalid.
         """
-        with self.qtbot.waitSignal(self.tab.load_finished,
+        with self.qtbot.wait_signal(self.tab.load_finished,
                                    timeout=2000) as blocker:
             self.tab.load_url(url)
         if not force:
@@ -113,7 +114,7 @@ class JSTester:
             source = f.read()
         self.run(source, expected)
 
-    def run(self, source: str, expected, world=None) -> None:
+    def run(self, source: str, expected=usertypes.UNSET, world=None) -> None:
         """Run the given javascript source.
 
         Args:
@@ -123,7 +124,9 @@ class JSTester:
         """
         with self.qtbot.wait_callback() as callback:
             self.tab.run_js_async(source, callback, world=world)
-        callback.assert_called_with(expected)
+
+        if expected is not usertypes.UNSET:
+            callback.assert_called_with(expected)
 
 
 @pytest.fixture

@@ -92,6 +92,8 @@ class HintLabel(QLabel):
         self._context = context
         self.elem = elem
 
+        self.setTextFormat(Qt.RichText)
+
         # Make sure we can style the background via a style sheet, and we don't
         # get any extra text indent from Qt.
         # The real stylesheet lives in mainwindow.py for performance reasons..
@@ -270,7 +272,7 @@ class HintActions:
         msg = "Yanked URL to {}: {}".format(
             "primary selection" if sel else "clipboard",
             urlstr)
-        message.info(msg)
+        message.info(msg, replace=context.rapid)
 
     def run_cmd(self, url: QUrl, context: HintContext) -> None:
         """Run the command based on a hint URL."""
@@ -1000,7 +1002,7 @@ class HintManager(QObject):
             self._context.first_run = False
 
     @cmdutils.register(instance='hintmanager', scope='window',
-                       modes=[usertypes.KeyMode.hint], deprecated_name='follow-hint')
+                       modes=[usertypes.KeyMode.hint])
     def hint_follow(self, select: bool = False, keystring: str = None) -> None:
         """Follow a hint.
 

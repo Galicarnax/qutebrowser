@@ -23,16 +23,16 @@ import os
 import sys
 import html
 import netrc
-from typing import Callable, Mapping, List
+from typing import Callable, Mapping, List, Optional
 import tempfile
 
 from PyQt5.QtCore import QUrl
 
 from qutebrowser.config import config
 from qutebrowser.utils import (usertypes, message, log, objreg, jinja, utils,
-                               qtutils)
+                               qtutils, version)
 from qutebrowser.mainwindow import mainwindow
-from qutebrowser.misc import guiprocess
+from qutebrowser.misc import guiprocess, objects
 
 
 class CallSuper(Exception):
@@ -79,6 +79,11 @@ def authentication_required(url, authenticator, abort_on):
     return answer
 
 
+def _format_msg(msg: str) -> str:
+    """Convert message to HTML suitable for rendering."""
+    return html.escape(msg).replace('\n', '<br />')
+
+
 def javascript_confirm(url, js_msg, abort_on):
     """Display a javascript confirm prompt."""
     log.js.debug("confirm: {}".format(js_msg))
@@ -86,7 +91,7 @@ def javascript_confirm(url, js_msg, abort_on):
         raise CallSuper
 
     msg = 'From <b>{}</b>:<br/>{}'.format(html.escape(url.toDisplayString()),
-                                          html.escape(js_msg))
+                                          _format_msg(js_msg))
     urlstr = url.toString(QUrl.RemovePassword | QUrl.FullyEncoded)
     ans = message.ask('Javascript confirm', msg,
                       mode=usertypes.PromptMode.yesno,
@@ -103,7 +108,7 @@ def javascript_prompt(url, js_msg, default, abort_on):
         return (False, "")
 
     msg = '<b>{}</b> asks:<br/>{}'.format(html.escape(url.toDisplayString()),
-                                          html.escape(js_msg))
+                                          _format_msg(js_msg))
     urlstr = url.toString(QUrl.RemovePassword | QUrl.FullyEncoded)
     answer = message.ask('Javascript prompt', msg,
                          mode=usertypes.PromptMode.text,
@@ -126,7 +131,7 @@ def javascript_alert(url, js_msg, abort_on):
         return
 
     msg = 'From <b>{}</b>:<br/>{}'.format(html.escape(url.toDisplayString()),
-                                          html.escape(js_msg))
+                                          _format_msg(js_msg))
     urlstr = url.toString(QUrl.RemovePassword | QUrl.FullyEncoded)
     message.ask('Javascript alert', msg, mode=usertypes.PromptMode.alert,
                 abort_on=abort_on, url=urlstr)
@@ -293,6 +298,15 @@ def get_user_stylesheet(searching=False):
     if setting == 'never' or setting == 'when-searching' and not searching:
         css += '\nhtml > ::-webkit-scrollbar { width: 0px; height: 0px; }'
 
+    if (objects.backend == usertypes.Backend.QtWebEngine and
+            version.qtwebengine_versions().chromium_major in [69, 73, 80, 87] and
+            config.val.colors.webpage.darkmode.enabled and
+            config.val.colors.webpage.darkmode.policy.images == 'smart' and
+            config.val.content.site_specific_quirks):
+        # WORKAROUND for MathML-output on Wikipedia being black on black.
+        # See https://bugs.chromium.org/p/chromium/issues/detail?id=1126606
+        css += '\nimg.mwe-math-fallback-image-inline { filter: invert(100%); }'
+
     return css
 
 
@@ -355,23 +369,60 @@ def choose_file(multiple: bool) -> List[str]:
         A list of selected file paths, or empty list if no file is selected.
         If multiple is False, the return value will have at most 1 item.
     """
-    handle = tempfile.NamedTemporaryFile(prefix='qutebrowser-fileselect-', delete=False)
-    handle.close()
-    tmpfilename = handle.name
-    with utils.cleanup_file(tmpfilename):
-        if multiple:
-            command = config.val.fileselect.multiple_files.command
-        else:
-            command = config.val.fileselect.single_file.command
+    if multiple:
+        command = config.val.fileselect.multiple_files.command
+    else:
+        command = config.val.fileselect.single_file.command
+    use_tmp_file = any('{}' in arg for arg in command[1:])
+    if use_tmp_file:
+        handle = tempfile.NamedTemporaryFile(
+            prefix='qutebrowser-fileselect-',
+            delete=False,
+        )
+        handle.close()
+        tmpfilename = handle.name
+        with utils.cleanup_file(tmpfilename):
+            command = (
+                command[:1] +
+                [arg.replace('{}', tmpfilename) for arg in command[1:]]
+            )
+            return _execute_fileselect_command(
+                command=command,
+                multiple=multiple,
+                tmpfilename=tmpfilename,
+            )
+    else:
+        return _execute_fileselect_command(
+            command=command,
+            multiple=multiple,
+        )
 
-        proc = guiprocess.GUIProcess(what='choose-file')
-        proc.start(command[0],
-                   [arg.replace('{}', tmpfilename) for arg in command[1:]])
 
-        loop = qtutils.EventLoop()
-        proc.finished.connect(lambda _code, _status: loop.exit())
-        loop.exec()
+def _execute_fileselect_command(
+    command: List[str],
+    multiple: bool,
+    tmpfilename: Optional[str] = None
+) -> List[str]:
+    """Execute external command to choose file.
 
+    Args:
+        multiple: Should selecting multiple files be allowed.
+        tmpfilename: Path to the temporary file if used, otherwise None.
+
+    Return:
+        A list of selected file paths, or empty list if no file is selected.
+        If multiple is False, the return value will have at most 1 item.
+    """
+    proc = guiprocess.GUIProcess(what='choose-file')
+    proc.start(command[0], command[1:])
+
+    loop = qtutils.EventLoop()
+    proc.finished.connect(lambda _code, _status: loop.exit())
+    loop.exec()
+
+    if tmpfilename is None:
+        selected_files = proc.final_stdout.splitlines()
+    else:
         try:
             with open(tmpfilename, mode='r', encoding=sys.getfilesystemencoding()) as f:
                 selected_files = f.read().splitlines()

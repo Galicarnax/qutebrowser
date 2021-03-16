@@ -329,7 +329,9 @@ class CommandDispatcher:
                         # Explicit count with a tab that doesn't exist.
                         return
                 elif curtab.navigation_blocked():
-                    message.info("Tab is pinned!")
+                    message.info("Tab is pinned! Opening in new tab.")
+                    self._tabbed_browser.tabopen(cur_url)
+
                 else:
                     curtab.load_url(cur_url)
 
@@ -915,7 +917,7 @@ class CommandDispatcher:
         return (tabbed_browser, tabbed_browser.widget.widget(idx-1))
 
     @cmdutils.register(instance='command-dispatcher', scope='window',
-                       maxsplit=0, deprecated_name='buffer')
+                       maxsplit=0)
     @cmdutils.argument('index', completion=miscmodels.tabs)
     @cmdutils.argument('count', value=cmdutils.Value.count)
     def tab_select(self, index=None, count=None):
@@ -1486,8 +1488,7 @@ class CommandDispatcher:
             objreg.last_focused_window(), alert=False))
         ed.edit(text, caret_position)
 
-    @cmdutils.register(instance='command-dispatcher', scope='window',
-                       deprecated_name='open-editor')
+    @cmdutils.register(instance='command-dispatcher', scope='window')
     def edit_text(self):
         """Open an external editor with the currently selected form field.
 
