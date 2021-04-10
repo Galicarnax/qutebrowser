@@ -32,8 +32,6 @@ import functools
 import contextlib
 import shlex
 import mimetypes
-import ctypes
-import ctypes.util
 from typing import (Any, Callable, IO, Iterator,
                     Optional, Sequence, Tuple, Type, Union,
                     TypeVar, TYPE_CHECKING)
@@ -89,7 +87,7 @@ class VersionNumber:
     """A representation of a version number."""
 
     def __init__(self, *args: int) -> None:
-        self._ver = QVersionNumber(*args)
+        self._ver = QVersionNumber(args)  # not *args, to support >3 components
         if self._ver.isNull():
             raise ValueError("Can't construct a null version")
 
@@ -103,8 +101,6 @@ class VersionNumber:
         self.minor = self._ver.minorVersion()
         self.patch = self._ver.microVersion()
         self.segments = self._ver.segments()
-
-        assert len(self.segments) <= 3, self.segments
 
     def __str__(self) -> str:
         return ".".join(str(s) for s in self.segments)
@@ -379,6 +375,18 @@ def is_enum(obj: Any) -> bool:
         return False
 
 
+def pyenum_str(value: enum.Enum) -> str:
+    """Get a string representation of a Python enum value.
+
+    This will have the form of "EnumType.membername", which is the default string
+    representation for Python up to 3.10. Unfortunately, that changes with Python 3.10:
+    https://bugs.python.org/issue40066
+    """
+    if sys.version_info[:2] >= (3, 10):
+        return repr(value)
+    return str(value)
+
+
 def get_repr(obj: Any, constructor: bool = False, **attrs: Any) -> str:
     """Get a suitable __repr__ string for an object.
 
@@ -391,8 +399,14 @@ def get_repr(obj: Any, constructor: bool = False, **attrs: Any) -> str:
     cls = qualname(obj.__class__)
     parts = []
     items = sorted(attrs.items())
+
     for name, val in items:
-        parts.append('{}={!r}'.format(name, val))
+        if isinstance(val, enum.Enum):
+            s = pyenum_str(val)
+        else:
+            s = repr(val)
+        parts.append(f'{name}={s}')
+
     if constructor:
         return '{}({})'.format(cls, ', '.join(parts))
     else:
@@ -607,7 +621,7 @@ def open_file(filename: str, cmdline: str = None) -> None:
     # if we want to use the default
     override = config.val.downloads.open_dispatcher
 
-    if version.is_sandboxed():
+    if version.is_flatpak():
         if cmdline:
             message.error("Cannot spawn download dispatcher from sandbox")
             return
@@ -751,19 +765,6 @@ def ceil_log(number: int, base: int) -> int:
         result += 1
         accum *= base
     return result
-
-
-def libgl_workaround() -> None:
-    """Work around QOpenGLShaderProgram issues, especially for Nvidia.
-
-    See https://bugs.launchpad.net/ubuntu/+source/python-qt4/+bug/941826
-    """
-    if os.environ.get('QUTE_SKIP_LIBGL_WORKAROUND'):
-        return
-
-    libgl = ctypes.util.find_library("GL")
-    if libgl is not None:  # pragma: no branch
-        ctypes.CDLL(libgl, mode=ctypes.RTLD_GLOBAL)
 
 
 def parse_duration(duration: str) -> int:

@@ -167,7 +167,7 @@ Feature: Special qute:// pages
     Scenario: qute://settings CSRF token (webengine)
         When I open qute://settings
         And I run :jseval const xhr = new XMLHttpRequest(); xhr.open("GET", "qute://settings/set"); xhr.send()
-        Then "RequestDeniedError while handling qute://* URL" should be logged
+        Then "RequestDeniedError while handling qute://* URL: Invalid CSRF token!" should be logged
         And the error "Invalid CSRF token for qute://settings!" should be shown
 
     # pdfjs support
@@ -192,7 +192,7 @@ Feature: Special qute:// pages
         And I open data/misc/test.pdf without waiting
         And I wait for "[qute://pdfjs/*] PDF * (PDF.js: *)" in the log
         And I run :jseval document.getElementById("download").click()
-        And I wait for "Asking question <qutebrowser.utils.usertypes.Question default=* mode=<PromptMode.download: 5> option=None text=* title='Save file to:'>, *" in the log
+        And I wait for "Asking question <qutebrowser.utils.usertypes.Question default=* mode=PromptMode.download option=None text=* title='Save file to:'>, *" in the log
         And I run :mode-leave
         Then no crash should happen
 
