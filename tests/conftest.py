@@ -36,7 +36,7 @@ from helpers import logfail
 from helpers.logfail import fail_on_logging
 from helpers.messagemock import message_mock
 from helpers.fixtures import *  # noqa: F403
-from helpers import utils as testutils
+from helpers import testutils
 from qutebrowser.utils import qtutils, standarddir, usertypes, utils, version
 from qutebrowser.misc import objects, earlyinit
 from qutebrowser.qt import sip
@@ -109,12 +109,6 @@ def _apply_platform_markers(config, item):
          pytest.mark.skipif,
          sys.getfilesystemencoding() == 'ascii',
          "Skipped because of ASCII locale"),
-
-        ('qtwebkit6021_xfail',
-         pytest.mark.xfail,
-         version.qWebKitVersion and  # type: ignore[unreachable]
-         version.qWebKitVersion() == '602.1',
-         "Broken on WebKit 602.1")
     ]
 
     for searched_marker, new_marker_kind, condition, default_reason in markers:

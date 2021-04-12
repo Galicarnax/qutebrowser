@@ -40,7 +40,7 @@ import qutebrowser
 from qutebrowser.browser import pdfjs, downloads, history
 from qutebrowser.config import config, configdata, configexc
 from qutebrowser.utils import (version, utils, jinja, log, message, docutils,
-                               objreg, standarddir)
+                               resources, objreg, standarddir)
 from qutebrowser.qt import sip
 
 
@@ -103,7 +103,7 @@ class add_handler:  # noqa: N801,N806 pylint: disable=invalid-name
         _name: The 'foo' part of qute://foo
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self._name = name
         self._function: Optional[Callable] = None
 
@@ -112,10 +112,10 @@ class add_handler:  # noqa: N801,N806 pylint: disable=invalid-name
         _HANDLERS[self._name] = self.wrapper
         return function
 
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self, url: QUrl) -> _HandlerRet:
         """Call the underlying function."""
         assert self._function is not None
-        return self._function(*args, **kwargs)
+        return self._function(url)
 
 
 def data_for_url(url: QUrl) -> Tuple[str, bytes]:
@@ -170,6 +170,7 @@ def data_for_url(url: QUrl) -> Tuple[str, bytes]:
     if mimetype == 'text/html' and isinstance(data, str):
         # We let handlers return HTML as text
         data = data.encode('utf-8', errors='xmlcharrefreplace')
+    assert isinstance(data, bytes)
 
     return mimetype, data
 
@@ -270,7 +271,7 @@ def qute_javascript(url: QUrl) -> _HandlerRet:
     path = url.path()
     if path:
         path = "javascript" + os.sep.join(path.split('/'))
-        return 'text/html', utils.read_file(path)
+        return 'text/html', resources.read_file(path)
     else:
         raise UrlInvalidError("No file specified")
 
@@ -291,7 +292,7 @@ def qute_spawn_output(_url: QUrl) -> _HandlerRet:
 
 @add_handler('version')
 @add_handler('verizon')
-def qute_version(_url):
+def qute_version(_url: QUrl) -> _HandlerRet:
     """Handler for qute://version."""
     src = jinja.render('version.html', title='Version info',
                        version=version.version_info(),
@@ -344,14 +345,14 @@ def qute_log(url: QUrl) -> _HandlerRet:
 @add_handler('gpl')
 def qute_gpl(_url: QUrl) -> _HandlerRet:
     """Handler for qute://gpl. Return HTML content as string."""
-    return 'text/html', utils.read_file('html/license.html')
+    return 'text/html', resources.read_file('html/license.html')
 
 
 def _asciidoc_fallback_path(html_path: str) -> Optional[str]:
     """Fall back to plaintext asciidoc if the HTML is unavailable."""
     path = html_path.replace('.html', '.asciidoc')
     try:
-        return utils.read_file(path)
+        return resources.read_file(path)
     except OSError:
         return None
 
@@ -371,14 +372,14 @@ def qute_help(url: QUrl) -> _HandlerRet:
     path = 'html/doc/{}'.format(urlpath)
     if not urlpath.endswith('.html'):
         try:
-            bdata = utils.read_file_binary(path)
+            bdata = resources.read_file_binary(path)
         except OSError as e:
             raise SchemeOSError(e)
         mimetype = utils.guess_mimetype(urlpath)
         return mimetype, bdata
 
     try:
-        data = utils.read_file(path)
+        data = resources.read_file(path)
     except OSError:
         asciidoc = _asciidoc_fallback_path(path)
 
@@ -574,7 +575,7 @@ def qute_resource(url: QUrl) -> _HandlerRet:
     path = url.path().lstrip('/')
     mimetype = utils.guess_mimetype(path, fallback=True)
     try:
-        data = utils.read_file_binary(path)
+        data = resources.read_file_binary(path)
     except FileNotFoundError as e:
         raise NotFoundError(str(e))
     return mimetype, data

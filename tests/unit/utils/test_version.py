@@ -357,14 +357,14 @@ class TestGitStr:
 
     @pytest.fixture
     def commit_file_mock(self, mocker):
-        """Fixture providing a mock for utils.read_file for git-commit-id.
+        """Fixture providing a mock for resources.read_file for git-commit-id.
 
         On fixture teardown, it makes sure it got called with git-commit-id as
         argument.
         """
         mocker.patch('qutebrowser.utils.version.subprocess',
                      side_effect=AssertionError)
-        m = mocker.patch('qutebrowser.utils.version.utils.read_file')
+        m = mocker.patch('qutebrowser.utils.version.resources.read_file')
         yield m
         m.assert_called_with('git-commit-id')
 
@@ -413,7 +413,7 @@ class TestGitStr:
         """Test with things raising OSError."""
         m = mocker.patch('qutebrowser.utils.version.os')
         m.path.join.side_effect = OSError
-        mocker.patch('qutebrowser.utils.version.utils.read_file',
+        mocker.patch('qutebrowser.utils.version.resources.read_file',
                      side_effect=OSError)
         with caplog.at_level(logging.ERROR, 'misc'):
             assert version._git_str() is None
@@ -926,6 +926,25 @@ class TestWebEngineVersions:
     def test_str(self, version, expected):
         assert str(version) == expected
 
+    @pytest.mark.parametrize('version, expected', [
+        (
+            version.WebEngineVersions(
+                webengine=utils.VersionNumber(5, 15, 2),
+                chromium=None,
+                source='test'),
+            None,
+        ),
+        (
+            version.WebEngineVersions(
+                webengine=utils.VersionNumber(5, 15, 2),
+                chromium='87.0.4280.144',
+                source='test'),
+            87,
+        ),
+    ])
+    def test_chromium_major(self, version, expected):
+        assert version.chromium_major == expected
+
     def test_from_ua(self):
         ua = websettings.UserAgent(
             os_info='X11; Linux x86_64',
@@ -951,13 +970,22 @@ class TestWebEngineVersions:
         )
         assert version.WebEngineVersions.from_elf(elf_version) == expected
 
-    def test_from_pyqt(self):
+    @pytest.mark.parametrize('qt_version, chromium_version', [
+        ('5.12.10', '69.0.3497.128'),
+        ('5.14.2', '77.0.3865.129'),
+        ('5.15.1', '80.0.3987.163'),
+        ('5.15.2', '83.0.4103.122'),
+        ('5.15.3', '87.0.4280.144'),
+        ('5.15.4', '87.0.4280.144'),
+        ('5.15.5', '87.0.4280.144'),
+    ])
+    def test_from_pyqt(self, qt_version, chromium_version):
         expected = version.WebEngineVersions(
-            webengine=utils.VersionNumber(5, 15, 2),
-            chromium='83.0.4103.122',
+            webengine=utils.VersionNumber.parse(qt_version),
+            chromium=chromium_version,
             source='PyQt',
         )
-        assert version.WebEngineVersions.from_pyqt('5.15.2') == expected
+        assert version.WebEngineVersions.from_pyqt(qt_version) == expected
 
     def test_real_chromium_version(self, qapp):
         """Compare the inferred Chromium version with the real one."""
@@ -970,11 +998,16 @@ class TestWebEngineVersions:
             # QtWebKit or QtWebEngine < 5.13
             pytest.skip(str(e))
 
+        pyqt_webengine_version = version._get_pyqt_webengine_qt_version()
+        if pyqt_webengine_version is None:
+            pyqt_webengine_version = PYQT_WEBENGINE_VERSION_STR
+
+        versions = version.WebEngineVersions.from_pyqt(pyqt_webengine_version)
+
         from qutebrowser.browser.webengine import webenginesettings
         webenginesettings.init_user_agent()
         expected = webenginesettings.parsed_user_agent.upstream_browser_version
 
-        versions = version.WebEngineVersions.from_pyqt(PYQT_WEBENGINE_VERSION_STR)
         assert versions.chromium == expected
 
 
@@ -1024,7 +1057,7 @@ class TestChromiumVersion:
         assert version.qtwebengine_versions().chromium == ver
 
     def test_prefers_saved_user_agent(self, monkeypatch):
-        version.webenginesettings._init_user_agent_str(_QTWE_USER_AGENT)
+        version.webenginesettings._init_user_agent_str(_QTWE_USER_AGENT.format('87'))
 
         class FakeProfile:
             def defaultProfile(self):
@@ -1040,18 +1073,93 @@ class TestChromiumVersion:
 
     def test_avoided(self, monkeypatch):
         versions = version.qtwebengine_versions(avoid_init=True)
-        assert versions.source in ['ELF', 'PyQt']
+        assert versions.source in ['ELF', 'importlib', 'PyQt', 'Qt']
 
-    def test_elf_fail_simulated(self, monkeypatch):
+    @pytest.fixture
+    def patch_elf_fail(self, monkeypatch):
+        """Simulate parsing the version from ELF to fail."""
         monkeypatch.setattr(elf, 'parse_webenginecore', lambda: None)
-        versions = version.qtwebengine_versions(avoid_init=True)
-        assert versions.source in ['PyQt', 'Qt']
 
-    def test_elf_fail_old_qt_simulated(self, monkeypatch):
-        monkeypatch.setattr(elf, 'parse_webenginecore', lambda: None)
+    @pytest.fixture
+    def patch_old_pyqt(self, monkeypatch):
+        """Simulate an old PyQt without PYQT_WEBENGINE_VERSION_STR."""
         monkeypatch.setattr(version, 'PYQT_WEBENGINE_VERSION_STR', None)
+
+    @pytest.fixture
+    def patch_no_importlib(self, monkeypatch, stubs):
+        """Simulate missing importlib modules."""
+        import_fake = stubs.ImportFake({
+            'importlib_metadata': False,
+            'importlib.metadata': False,
+        }, monkeypatch)
+        import_fake.patch()
+
+    @pytest.fixture
+    def importlib_patcher(self, monkeypatch):
+        """Patch the importlib module."""
+        def _patch(*, qt, qt5):
+            try:
+                import importlib.metadata as importlib_metadata
+            except ImportError:
+                importlib_metadata = pytest.importorskip("importlib_metadata")
+
+            def _fake_version(name):
+                if name == 'PyQtWebEngine-Qt':
+                    outcome = qt
+                elif name == 'PyQtWebEngine-Qt5':
+                    outcome = qt5
+                else:
+                    raise utils.Unreachable(outcome)
+
+                if outcome is None:
+                    raise importlib_metadata.PackageNotFoundError(name)
+                return outcome
+
+            monkeypatch.setattr(importlib_metadata, 'version', _fake_version)
+
+        return _patch
+
+    @pytest.fixture
+    def patch_importlib_no_package(self, importlib_patcher):
+        """Simulate importlib not finding PyQtWebEngine-Qt[5]."""
+        importlib_patcher(qt=None, qt5=None)
+
+    @pytest.mark.parametrize('patches, sources', [
+        (['elf_fail'], ['importlib', 'PyQt', 'Qt']),
+        (['elf_fail', 'old_pyqt'], ['importlib', 'Qt']),
+        (['elf_fail', 'no_importlib'], ['PyQt', 'Qt']),
+        (['elf_fail', 'no_importlib', 'old_pyqt'], ['Qt']),
+        (['elf_fail', 'importlib_no_package'], ['PyQt', 'Qt']),
+        (['elf_fail', 'importlib_no_package', 'old_pyqt'], ['Qt']),
+    ], ids=','.join)
+    def test_simulated(self, request, patches, sources):
+        """Test various simulated error conditions.
+
+        This dynamically gets a list of fixtures (above) to do the patching. It then
+        checks whether the version it got is from one of the expected sources. Depending
+        on the environment this test is run in, some sources might fail "naturally",
+        i.e. without any patching related to them.
+        """
+        for patch in patches:
+            request.getfixturevalue(f'patch_{patch}')
+
         versions = version.qtwebengine_versions(avoid_init=True)
-        assert versions.source == 'Qt'
+        assert versions.source in sources
+
+    @pytest.mark.parametrize('qt, qt5, expected', [
+        (None, '5.15.4', utils.VersionNumber(5, 15, 4)),
+        ('5.15.3', None, utils.VersionNumber(5, 15, 3)),
+        ('5.15.3', '5.15.4', utils.VersionNumber(5, 15, 4)),  # -Qt5 takes precedence
+    ])
+    def test_importlib(self, qt, qt5, expected, patch_elf_fail, importlib_patcher):
+        """Test the importlib version logic with different Qt packages.
+
+        With PyQtWebEngine 5.15.4, PyQtWebEngine-Qt was renamed to PyQtWebEngine-Qt5.
+        """
+        importlib_patcher(qt=qt, qt5=qt5)
+        versions = version.qtwebengine_versions(avoid_init=True)
+        assert versions.source == 'importlib'
+        assert versions.webengine == expected
 
 
 @dataclasses.dataclass
