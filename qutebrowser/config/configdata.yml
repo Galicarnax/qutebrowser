@@ -440,6 +440,16 @@ content.cookies.accept:
     If this setting is used with URL patterns, the pattern gets applied to the
     origin/first party URL of the page making the request, not the request URL.
 
+    With QtWebEngine 5.15.0+, paths will be stripped from URLs, so URL patterns
+    using paths will not match. With QtWebEngine 5.15.2+, subdomains are
+    additionally stripped as well, so you will typically need to set this
+    setting for `example.com` when the cookie is set on
+    `somesubdomain.example.com` for it to work properly.
+
+    To debug issues with this setting, start qutebrowser with `--debug
+    --logfilter network --debug-flag log-cookies` which will show all cookies
+    being set.
+
 content.cookies.store:
   default: true
   type: Bool
@@ -519,11 +529,31 @@ content.frame_flattening:
     This will flatten all the frames to become one scrollable page.
 
 content.site_specific_quirks:
+  renamed: content.site_specific_quirks.enabled
+
+content.site_specific_quirks.enabled:
   default: true
   restart: true
   type: Bool
   desc: 'Enable quirks (such as faked user agent headers) needed to get
       specific sites to work properly.'
+
+content.site_specific_quirks.skip:
+  type:
+    name: FlagList
+    valid_values:
+      - ua-whatsapp
+      - ua-google
+      - ua-slack
+      - js-whatsapp-web
+      - js-string-replaceall
+      - js-globalthis
+      - js-object-fromentries
+      - misc-krunker
+      - misc-mathml-darkmode
+    none_ok: true
+  default: []
+  desc: 'Disable a list of named quirks.'
 
 # emacs: '
 
@@ -881,6 +911,9 @@ content.netrc_file:
     If unset, `~/.netrc` is used.
 
 content.notifications:
+  renamed: content.notifications.enabled
+
+content.notifications.enabled:
   default: ask
   type: BoolAsk
   supports_pattern: true
@@ -888,6 +921,59 @@ content.notifications:
     QtWebEngine: Qt 5.13
     QtWebKit: true
   desc: Allow websites to show notifications.
+
+content.notifications.presenter:
+  default: auto
+  type:
+    name: String
+    valid_values:
+      - auto: Tries `libnotify`, `systray` and `messages`, uses the first one available
+            without showing error messages.
+      - qt: Use Qt's native notification presenter, based on a system tray icon.
+            Switching from or to this value requires a restart of qutebrowser.
+            Recommended over `systray` on PyQt 5.14.
+      - libnotify: Shows messages via DBus in a libnotify-compatible way. If DBus isn't
+            available, falls back to `systray` or `messages`, but shows an error
+            message.
+      - systray: Use a notification presenter based on a systray icon. Falls back to
+            `libnotify` or `messages` if not systray is available. This is a
+            reimplementation of the `qt` setting value, but with the possibility to
+            switch to it at runtime.
+      - messages: Show notifications as qutebrowser messages. Most notification features
+            aren't available.
+      - herbe: (experimental!) Show notifications using herbe (github.com/dudik/herbe).
+            Most notification features aren't available.
+  backend:
+    QtWebEngine: Qt 5.14
+    QtWebKit: false
+  desc: >-
+    What notification presenter to use for web notifications.
+
+    Note that not all implementations support all features of notifications:
+
+    - With PyQt 5.14, any setting other than `qt` does not support  the `click` and
+      `close` events, as well as the `tag` option to replace existing notifications.
+    - The `qt` and `systray` options only support showing one notification at the time
+      and ignore the `tag` option to replace existing notifications.
+    - The `herbe` option only supports showing one notification at the time and doesn't
+      show icons.
+    - The `messages` option doesn't show icons and doesn't support the `click` and
+      `close` events.
+
+content.notifications.show_origin:
+  default: true
+  type: Bool
+  supports_pattern: true
+  backend:
+    QtWebEngine: Qt 5.14
+    QtWebKit: false
+  desc: >-
+    Whether to show the origin URL for notifications.
+
+    Note that URL patterns with this setting only get matched against the origin part of
+    the URL, so e.g. paths in patterns will never match.
+
+    Note that with the `qt` presenter, origins are never shown.
 
 content.pdfjs:
   default: false
@@ -953,11 +1039,22 @@ content.register_protocol_handler:
   desc: Allow websites to register protocol handlers via
     `navigator.registerProtocolHandler`.
 
-content.ssl_strict:
+content.tls.certificate_errors:
   default: ask
-  type: BoolAsk
+  type:
+    name: String
+    valid_values:
+      - ask: Ask how to proceed for every certificate error (unless non-overridable due
+            to HSTS).
+      - ask-block-thirdparty: Ask how to proceed for normal page loads, but silently
+            block resource loads.
+      - block: Automatically block loading on certificate errors.
+      - load-insecurely: Force loading pages despite certificate errors. This is
+            *insecure* and should be avoided. Instead of using this, consider fixing the
+            underlying issue or importing a self-signed certificate via `certutil` (or
+            Chromium) instead.
   supports_pattern: true
-  desc: Validate SSL handshakes.
+  desc: How to proceed on TLS certificate errors.
 
 content.user_stylesheets:
   type:
@@ -1307,6 +1404,24 @@ fileselect.multiple_files.command:
     * `{}`: Filename of the file to be written to. If not contained in any argument, the
       standard output of the command is read instead.
 
+fileselect.folder.command:
+  type:
+    name: ShellCommand
+    placeholder: false
+    completions:
+      - ['["xterm", "-e", "ranger", "--choosedir={}"]', "Ranger in xterm"]
+      - ['["xterm", "-e", "vifm", "--choose-dir", "{}"]', "vifm in xterm"]
+      - ['["xterm", "-e", "nnn", "-p", "{}"]', "nnn in xterm"]
+  default: ['xterm', '-e', 'ranger', '--choosedir={}']
+  desc: >-
+    Command (and arguments) to use for selecting a single folder in forms.
+    The command should write the selected folder path to the specified file or stdout.
+
+    The following placeholders are defined:
+
+    * `{}`: Filename of the file to be written to. If not contained in any argument, the
+      standard output of the command is read instead.
+
 ## hints
 
 hints.auto_follow:
@@ -1612,6 +1727,18 @@ input.spatial_navigation:
     Left, Right, Up and Down arrow keys. For example, if the user presses the
     Right key, heuristics determine whether there is an element he might be
     trying to reach towards the right and which element he probably wants.
+
+input.media_keys:
+  default: true
+  type: Bool
+  backend:
+    QtWebEngine: Qt 5.14
+    QtWebKit: false
+  restart: true
+  desc: >-
+    Whether the underlying Chromium should handle media keys.
+
+    On Linux, disabling this also disables Chromium's MPRIS integration.
 
 ## keyhint
 
@@ -3232,13 +3359,20 @@ bindings.key_mappings:
     keytype: Key
     valtype: Key
   desc: >-
-    This setting can be used to map keys to other keys.
+    Map keys to other keys, so that they are equivalent in all modes.
 
     When the key used as dictionary-key is pressed, the binding for the key
     used as dictionary-value is invoked instead.
 
-    This is useful for global remappings of keys, for example to map Ctrl-[ to
-    Escape.
+    This is useful for global remappings of keys, for example to map <Ctrl-[> to
+    <Escape>.
+
+    NOTE: This should only be used if two keys should always be equivalent, i.e. for
+    things like <Enter> (keypad) and <Return> (non-keypad). For normal command bindings,
+    qutebrowser works differently to vim: You always bind keys to commands, usually via
+    `:bind` or `config.bind()`. Instead of using this setting, consider finding the
+    command a key is bound to (e.g. via `:bind gg`) and then binding the same command to
+    the desired key.
 
     Note that when a key is bound (via `bindings.default` or
     `bindings.commands`), the mapping is ignored.
@@ -3268,7 +3402,7 @@ bindings.default:
       <Ctrl-Shift-W>: close
       D: tab-close -o
       co: tab-only
-      T: tab-focus
+      T: set-cmd-text -sr :tab-focus
       gm: tab-move
       gK: tab-move -
       gJ: tab-move +

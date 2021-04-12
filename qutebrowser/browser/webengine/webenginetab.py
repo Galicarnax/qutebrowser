@@ -464,7 +464,7 @@ class WebEngineCaret(browsertab.AbstractCaret):
             # `:selection-toggle` is executed and before this callback function
             # is asynchronously called.
             log.misc.debug("Ignoring caret selection callback in {}".format(
-                self._mode_manager.mode))
+                utils.pyenum_str(self._mode_manager.mode)))
             return
         if state_str is None:
             message.error("Error toggling caret selection")
@@ -833,7 +833,7 @@ class _WebEnginePermissions(QObject):
     # https://www.riverbankcomputing.com/pipermail/pyqt/2019-July/041903.html
 
     _options = {
-        0: 'content.notifications',
+        0: 'content.notifications.enabled',
         QWebEnginePage.Geolocation: 'content.geolocation',
         QWebEnginePage.MediaAudioCapture: 'content.media.audio_capture',
         QWebEnginePage.MediaVideoCapture: 'content.media.video_capture',
@@ -882,9 +882,9 @@ class _WebEnginePermissions(QObject):
         if on:
             timeout = config.val.content.fullscreen.overlay_timeout
             if timeout != 0:
-                notification = miscwidgets.FullscreenNotification(self._widget)
-                notification.set_timeout(timeout)
-                notification.show()
+                notif = miscwidgets.FullscreenNotification(self._widget)
+                notif.set_timeout(timeout)
+                notif.show()
 
     @pyqtSlot(QUrl, 'QWebEnginePage::Feature')
     def _on_feature_permission_requested(self, url, feature):
@@ -1142,7 +1142,7 @@ class _WebEngineScripts(QObject):
 
     def _inject_site_specific_quirks(self):
         """Add site-specific quirk scripts."""
-        if not config.val.content.site_specific_quirks:
+        if not config.val.content.site_specific_quirks.enabled:
             return
 
         versions = version.qtwebengine_versions()
@@ -1170,12 +1170,14 @@ class _WebEngineScripts(QObject):
             if not quirk.predicate:
                 continue
             src = resources.read_file(f'javascript/quirks/{quirk.filename}.user.js')
-            self._inject_js(
-                f'quirk_{quirk.filename}',
-                src,
-                world=quirk.world,
-                injection_point=quirk.injection_point,
-            )
+            name = f"js-{quirk.filename.replace('_', '-')}"
+            if name not in config.val.content.site_specific_quirks.skip:
+                self._inject_js(
+                    f'quirk_{quirk.filename}',
+                    src,
+                    world=quirk.world,
+                    injection_point=quirk.injection_point,
+                )
 
 
 class WebEngineTabPrivate(browsertab.AbstractTabPrivate):
@@ -1516,11 +1518,22 @@ class WebEngineTab(browsertab.AbstractTab):
         url = error.url()
         self._insecure_hosts.add(url.host())
 
+        # WORKAROUND for https://bugreports.qt.io/browse/QTBUG-92009
+        # self.url() is not available yet and the requested URL might not match the URL
+        # we get from the error - so we just apply a heuristic here.
+        assert self.data.last_navigation is not None
+        first_party_url = self.data.last_navigation.url
+
         log.network.debug("Certificate error: {}".format(error))
+        log.network.debug("First party URL: {}".format(first_party_url))
 
         if error.is_overridable():
-            error.ignore = shared.ignore_certificate_errors(
-                url, [error], abort_on=[self.abort_questions])
+            error.ignore = shared.ignore_certificate_error(
+                request_url=url,
+                first_party_url=first_party_url,
+                error=error,
+                abort_on=[self.abort_questions],
+            )
         else:
             log.network.error("Non-overridable certificate error: "
                               "{}".format(error))
@@ -1544,12 +1557,10 @@ class WebEngineTab(browsertab.AbstractTab):
 
         # We can't really know when to show an error page, as the error might
         # have happened when loading some resource.
-        # However, self.url() is not available yet and the requested URL
-        # might not match the URL we get from the error - so we just apply a
-        # heuristic here.
-        assert self.data.last_navigation is not None
-        if (show_non_overr_cert_error and
-                url.matches(self.data.last_navigation.url, QUrl.RemoveScheme)):
+        is_resource = (
+            first_party_url.isValid() and
+            url.matches(first_party_url, QUrl.RemoveScheme))
+        if show_non_overr_cert_error and is_resource:
             self._show_error_page(url, str(error))
 
     @pyqtSlot()
