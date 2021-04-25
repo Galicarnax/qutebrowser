@@ -124,7 +124,7 @@ jobs:
           ### PyQt 5.15 (Python 3.10)
           - testenv: py310-pyqt515
             os: ubuntu-20.04
-            python: 3.10-dev
+            python: 3.10.0-alpha.7
           ### macOS: PyQt 5.15 (Python 3.9 to match PyInstaller env)
           - testenv: py39-pyqt515
             os: macos-10.15
@@ -190,7 +190,7 @@ jobs:
         uses: github/codeql-action/init@v1
         with:
           languages: javascript, python
-          queries: +security-and-quality
+          queries: +security-extended
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
 
