@@ -115,7 +115,9 @@ def raise_window(window, alert=True):
 
     global i3ipc_used
     if i3ipc_used and window.wm_variant == 'sway':
-        window.wm_connection.command('[app_id="org.qutebrowser.qutebrowser"] focus')
+        curfoc = window.wm_connection.get_tree().find_focused().app_id
+        if curfoc != 'org.qutebrowser.qutebrowser':
+            window.wm_connection.command('[app_id="org.qutebrowser.qutebrowser"] focus')
 
     if not sip.isdeleted(window):
         # Could be deleted by the events run above
