@@ -401,6 +401,16 @@ class WebEngineCaret(browsertab.AbstractCaret):
         self._js_call('reverseSelection')
 
     def _follow_selected_cb_wrapped(self, js_elem, tab):
+        if sip.isdeleted(self):
+            # Sometimes, QtWebEngine JS callbacks seem to be stuck, and will
+            # later get executed when the tab is closed. However, at this point,
+            # the WebEngineCaret is already gone.
+            log.webview.warning(
+                "Got follow_selected callback for deleted WebEngineCaret. "
+                "This is most likely due to a QtWebEngine bug, please report a "
+                "qutebrowser issue if you know a way to reproduce this.")
+            return
+
         try:
             self._follow_selected_cb(js_elem, tab)
         finally:
@@ -1102,7 +1112,12 @@ class _WebEngineScripts(QObject):
         page_scripts = self._widget.page().scripts()
         self._remove_all_greasemonkey_scripts()
 
+        seen_names = set()
         for script in scripts:
+            while script.full_name() in seen_names:
+                script.dedup_suffix += 1
+            seen_names.add(script.full_name())
+
             new_script = QWebEngineScript()
 
             try:
@@ -1134,7 +1149,7 @@ class _WebEngineScripts(QObject):
             new_script.setInjectionPoint(QWebEngineScript.DocumentReady)
 
             new_script.setSourceCode(script.code())
-            new_script.setName(f"GM-{script.name}")
+            new_script.setName(script.full_name())
             new_script.setRunsOnSubFrames(script.runs_on_sub_frames)
 
             if script.needs_document_end_workaround():
@@ -1593,7 +1608,9 @@ class WebEngineTab(browsertab.AbstractTab):
         up doing it twice.
         """
         super()._on_url_changed(url)
-        if url.isValid() and qtutils.version_check('5.13'):
+        if (url.isValid() and
+                qtutils.version_check('5.13') and
+                not qtutils.version_check('5.14')):
             self.settings.update_for_url(url)
 
     @pyqtSlot(usertypes.NavigationRequest)

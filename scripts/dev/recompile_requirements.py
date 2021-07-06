@@ -50,7 +50,6 @@ CHANGELOG_URLS = {
     'EasyProcess': 'https://github.com/ponty/EasyProcess/commits/master',
     'PyVirtualDisplay': 'https://github.com/ponty/PyVirtualDisplay/commits/master',
     'execnet': 'https://execnet.readthedocs.io/en/latest/changelog.html',
-    'apipkg': 'https://github.com/pytest-dev/apipkg/blob/master/CHANGELOG',
     'pytest-rerunfailures': 'https://github.com/pytest-dev/pytest-rerunfailures/blob/master/CHANGES.rst',
     'pytest-repeat': 'https://github.com/pytest-dev/pytest-repeat/blob/master/CHANGES.rst',
     'requests': 'https://github.com/psf/requests/blob/master/HISTORY.md',
@@ -66,6 +65,8 @@ CHANGELOG_URLS = {
     'glob2': 'https://github.com/miracle2k/python-glob2/blob/master/CHANGES',
     'hypothesis': 'https://hypothesis.readthedocs.io/en/latest/changes.html',
     'mypy': 'https://mypy-lang.blogspot.com/',
+    'types-PyYAML': 'https://github.com/python/typeshed/commits/master/stubs/PyYAML',
+    'types-dataclasses': 'https://github.com/python/typeshed/commits/master/stubs/dataclasses',
     'pytest': 'https://docs.pytest.org/en/latest/changelog.html',
     'iniconfig': 'https://github.com/RonnyPfannschmidt/iniconfig/blob/master/CHANGELOG',
     'tox': 'https://tox.readthedocs.io/en/latest/changelog.html',
@@ -185,6 +186,7 @@ CHANGELOG_URLS = {
     'setuptools': 'https://setuptools.readthedocs.io/en/latest/history.html',
     'future': 'https://python-future.org/whatsnew.html',
     'pefile': 'https://github.com/erocarrera/pefile/commits/master',
+    'Deprecated': 'https://github.com/tantale/deprecated/blob/master/CHANGELOG.rst',
 }
 
 
