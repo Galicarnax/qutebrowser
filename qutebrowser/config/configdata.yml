@@ -649,7 +649,9 @@ content.headers.referer:
     When to send the Referer header.
 
     The Referer header tells websites from which website you were coming from
-    when visiting them.
+    when visiting them. Note that with QtWebEngine, websites can override this
+    preference by setting the `Referrer-Policy:` header, so that any websites
+    visited from them get the full referer.
 
     No restart is needed with QtWebKit.
 
@@ -746,6 +748,15 @@ content.blocking.hosts.lists:
     case of a directory, all files in the directory are read as adblock lists.
 
     The file `~/.config/qutebrowser/blocked-hosts` is always read if it exists.
+
+content.blocking.hosts.block_subdomains:
+  default: true
+  type: Bool
+  desc: >-
+    Block subdomains of blocked hosts.
+
+    Note: If only a single subdomain is blocked but should be allowed, consider
+    using `content.blocking.whitelist` instead.
 
 content.blocking.method:
   default: auto
@@ -1344,6 +1355,18 @@ downloads.position:
   default: top
   desc: Where to show the downloaded files.
 
+downloads.prevent_mixed_content:
+  type: Bool
+  default: true
+  supports_pattern: true
+  desc:
+    Automatically abort insecure (HTTP) downloads originating from secure
+    (HTTPS) pages.
+
+    For per-domain settings, the relevant URL is the URL initiating the
+    download, not the URL the download itself is coming from. It's not
+    recommended to set this setting to false globally.
+
 downloads.remove_finished:
   default: -1
   type:
@@ -1401,6 +1424,8 @@ fileselect.single_file.command:
       - ['["xterm", "-e", "ranger", "--choosefile={}"]', "Ranger in xterm"]
       - ['["xterm", "-e", "vifm", "--choose-files", "{}"]', "vifm in xterm"]
       - ['["xterm", "-e", "nnn", "-p", "{}"]', "nnn in xterm"]
+      - ['["xterm", "-e", "fff", "-p", "{}"]', "fff in xterm"]
+      - ['["xterm", "-e", "lf", "-selection-path", "{}"]', "lf in xterm"]
   default: ['xterm', '-e', 'ranger', '--choosefile={}']
   desc: >-
     Command (and arguments) to use for selecting a single file in forms.
@@ -1419,6 +1444,8 @@ fileselect.multiple_files.command:
       - ['["xterm", "-e", "ranger", "--choosefiles={}"]', "Ranger in xterm"]
       - ['["xterm", "-e", "vifm", "--choose-files", "{}"]', "vifm in xterm"]
       - ['["xterm", "-e", "nnn", "-p", "{}"]', "nnn in xterm"]
+      - ['["xterm", "-e", "fff", "-p", "{}"]', "fff in xterm"]
+      - ['["xterm", "-e", "lf", "-selection-path", "{}"]', "lf in xterm"]
   default: ['xterm', '-e', 'ranger', '--choosefiles={}']
   desc: >-
     Command (and arguments) to use for selecting multiple files in forms.
