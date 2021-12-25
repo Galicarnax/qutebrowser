@@ -44,8 +44,8 @@ class LineEditStyle(QProxyStyle):
     def pixelMetric(self, metric, option, widget):
         if metric == QProxyStyle.PM_TextCursorWidth:
             if self.cursor_width > 0:
-                return self.cursor_width
-        return QProxyStyle.pixelMetric(self, metric, option, widget)
+                return int(self.cursor_width)
+        return int(QProxyStyle.pixelMetric(self, metric, option, widget))
 
 
 class Command(misc.MinimalLineEditMixin, misc.CommandLineEdit):

@@ -715,10 +715,14 @@ class DBusNotificationAdapter(AbstractNotificationAdapter):
         # https://github.com/KDE/plasma-workspace/blob/v5.21.4/libnotificationmanager/server_p.cpp#L227-L237
         # Created too many similar notifications in quick succession
         "org.freedesktop.Notifications.Error.ExcessNotificationGeneration",
+
+        # From https://crashes.qutebrowser.org/view/b8c9838a - probably when
+        # notification daemon crashes?
+        "org.freedesktop.DBus.Error.Spawn.ChildSignaled",
     }
 
     def __init__(self, parent: QObject = None) -> None:
-        super().__init__(bridge)
+        super().__init__(parent)
         assert _notifications_supported()
 
         if utils.is_windows:

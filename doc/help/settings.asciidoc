@@ -269,6 +269,7 @@
 |<<input.insert_mode.leave_on_load,input.insert_mode.leave_on_load>>|Leave insert mode when starting a new page load.
 |<<input.insert_mode.plugins,input.insert_mode.plugins>>|Switch to insert mode when clicking flash and other plugins.
 |<<input.links_included_in_focus_chain,input.links_included_in_focus_chain>>|Include hyperlinks in the keyboard focus chain when tabbing.
+|<<input.match_counts,input.match_counts>>|Interpret number prefixes as counts for bindings.
 |<<input.media_keys,input.media_keys>>|Whether the underlying Chromium should handle media keys.
 |<<input.mouse.back_forward_buttons,input.mouse.back_forward_buttons>>|Enable back and forward buttons on the mouse.
 |<<input.mouse.rocker_gestures,input.mouse.rocker_gestures>>|Enable Opera-like mouse rocker gestures.
@@ -2669,7 +2670,7 @@ Default: +pass:[false]+
 === content.proxy
 Proxy to use.
 In addition to the listed values, you can use a `socks://...` or `http://...` URL.
-Note that with QtWebEngine, it will take a couple of seconds until the change is applied, if this value is changed at runtime.
+Note that with QtWebEngine, it will take a couple of seconds until the change is applied, if this value is changed at runtime. Authentication for SOCKS proxies isn't supported due to Chromium limitations.
 
 Type: <<types,Proxy>>
 
@@ -3424,11 +3425,16 @@ Default:
 * +pass:[[role=&quot;link&quot;\]]+
 * +pass:[[role=&quot;option&quot;\]]+
 * +pass:[[role=&quot;button&quot;\]]+
+* +pass:[[role=&quot;tab&quot;\]]+
+* +pass:[[role=&quot;checkbox&quot;\]]+
+* +pass:[[role=&quot;menuitem&quot;\]]+
+* +pass:[[role=&quot;menuitemcheckbox&quot;\]]+
+* +pass:[[role=&quot;menuitemradio&quot;\]]+
 * +pass:[[ng-click\]]+
 * +pass:[[ngClick\]]+
 * +pass:[[data-ng-click\]]+
 * +pass:[[x-ng-click\]]+
-* +pass:[[tabindex\]]+
+* +pass:[[tabindex\]:not([tabindex=&quot;-1&quot;\])]+
 - +pass:[images]+:
 
 * +pass:[img]+
@@ -3552,6 +3558,15 @@ Default: +pass:[false]+
 Include hyperlinks in the keyboard focus chain when tabbing.
 
 This setting supports link:configuring{outfilesuffix}#patterns[URL patterns].
+
+Type: <<types,Bool>>
+
+Default: +pass:[true]+
+
+[[input.match_counts]]
+=== input.match_counts
+Interpret number prefixes as counts for bindings.
+This enables for vi-like bindings that can be prefixed with a number to indicate a count. Disabling it allows for emacs-like bindings where number keys are passed through (according to `input.forward_unbound_keys`) instead.
 
 Type: <<types,Bool>>
 
