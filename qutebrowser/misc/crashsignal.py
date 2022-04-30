@@ -100,7 +100,7 @@ class CrashHandler(QObject):
                 # There's no log file, so we can use this to display crashes to
                 # the user on the next start.
                 self._init_crashlogfile()
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             log.init.exception("Error while handling crash log file!")
             self._init_crashlogfile()
 
@@ -361,8 +361,7 @@ class SignalHandler(QObject):
             self._notifier = QSocketNotifier(cast(sip.voidptr, read_fd),
                                              QSocketNotifier.Read,
                                              self)
-            self._notifier.activated.connect(  # type: ignore[attr-defined]
-                self.handle_signal_wakeup)
+            self._notifier.activated.connect(self.handle_signal_wakeup)
             self._orig_wakeup_fd = signal.set_wakeup_fd(write_fd)
             # pylint: enable=import-error,no-member,useless-suppression
         else:

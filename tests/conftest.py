@@ -17,31 +17,29 @@
 # You should have received a copy of the GNU General Public License
 # along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
 
-# pylint: disable=unused-import,wildcard-import,unused-wildcard-import
-
 """The qutebrowser test suite conftest file."""
 
 import os
 import pathlib
 import sys
-import warnings
 
 import pytest
 import hypothesis
-from PyQt5.QtCore import PYQT_VERSION
 
 pytest.register_assert_rewrite('helpers')
 
+# pylint: disable=wildcard-import,unused-import,unused-wildcard-import
 from helpers import logfail
 from helpers.logfail import fail_on_logging
 from helpers.messagemock import message_mock
 from helpers.fixtures import *  # noqa: F403
+# pylint: enable=wildcard-import,unused-import,unused-wildcard-import
 from helpers import testutils
-from qutebrowser.utils import qtutils, standarddir, usertypes, utils, version
+from qutebrowser.utils import usertypes, utils, version
 from qutebrowser.misc import objects, earlyinit
-from qutebrowser.qt import sip
 
-import qutebrowser.app  # To register commands
+# To register commands
+import qutebrowser.app  # pylint: disable=unused-import
 
 
 _qute_scheme_handler = None
@@ -196,9 +194,8 @@ def pytest_ignore_collect(path):
 @pytest.fixture(scope='session')
 def qapp_args():
     """Make QtWebEngine unit tests run on older Qt versions + newer kernels."""
-    seccomp_args = testutils.seccomp_args(qt_flag=False)
-    if seccomp_args:
-        return [sys.argv[0]] + seccomp_args
+    if testutils.disable_seccomp_bpf_sandbox():
+        return [sys.argv[0], testutils.DISABLE_SECCOMP_BPF_FLAG]
     return []
 
 
@@ -251,6 +248,7 @@ def _select_backend(config):
     backend = backend_arg or backend_env or _auto_select_backend()
 
     # Fail early if selected backend is not available
+    # pylint: disable=unused-import
     if backend == 'webkit':
         import PyQt5.QtWebKitWidgets
     elif backend == 'webengine':
@@ -262,6 +260,7 @@ def _select_backend(config):
 
 
 def _auto_select_backend():
+    # pylint: disable=unused-import
     try:
         # Try to use QtWebKit as the default backend
         import PyQt5.QtWebKitWidgets
@@ -336,10 +335,10 @@ def check_yaml_c_exts():
     """Make sure PyYAML C extensions are available on CI.
 
     Not available yet with a nightly Python, see:
-    https://github.com/yaml/pyyaml/issues/416
+    https://github.com/yaml/pyyaml/issues/630
     """
-    if testutils.ON_CI and sys.version_info[:2] != (3, 10):
-        from yaml import CLoader
+    if testutils.ON_CI and sys.version_info[:2] != (3, 11):
+        from yaml import CLoader  # pylint: disable=unused-import
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
