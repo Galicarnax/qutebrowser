@@ -172,6 +172,8 @@
 |<<content.javascript.clipboard,content.javascript.clipboard>>|Allow JavaScript to read from or write to the clipboard.
 |<<content.javascript.enabled,content.javascript.enabled>>|Enable JavaScript.
 |<<content.javascript.log,content.javascript.log>>|Log levels to use for JavaScript console logging messages.
+|<<content.javascript.log_message.excludes,content.javascript.log_message.excludes>>|Javascript messages to *not* show in the UI, despite a corresponding `content.javascript.log_message.levels` setting.
+|<<content.javascript.log_message.levels,content.javascript.log_message.levels>>|Javascript message sources/levels to show in the qutebrowser UI.
 |<<content.javascript.modal_dialog,content.javascript.modal_dialog>>|Use the standard JavaScript modal dialog for `alert()` and `confirm()`.
 |<<content.javascript.prompt,content.javascript.prompt>>|Show javascript prompts.
 |<<content.local_content_can_access_file_urls,content.local_content_can_access_file_urls>>|Allow locally loaded documents to access other local URLs.
@@ -303,6 +305,7 @@
 |<<search.ignore_case,search.ignore_case>>|When to find text on a page case-insensitively.
 |<<search.incremental,search.incremental>>|Find text on a page incrementally, renewing the search for each typed character.
 |<<search.wrap,search.wrap>>|Wrap around at the top and bottom of the page when advancing through text matches using `:search-next` and `:search-prev`.
+|<<search.wrap_messages,search.wrap_messages>>|Display messages when advancing through text matches at the top and bottom of the page, e.g. `Search hit TOP`.
 |<<session.default_name,session.default_name>>|Name of the session to save by default.
 |<<session.lazy_restore,session.lazy_restore>>|Load a restored tab as soon as it takes focus.
 |<<spellcheck.languages,spellcheck.languages>>|Languages to use for spell checking.
@@ -750,6 +753,7 @@ Default:
 * +pass:[&lt;Alt-B&gt;]+: +pass:[rl-backward-word]+
 * +pass:[&lt;Alt-Backspace&gt;]+: +pass:[rl-backward-kill-word]+
 * +pass:[&lt;Alt-D&gt;]+: +pass:[rl-kill-word]+
+* +pass:[&lt;Alt-E&gt;]+: +pass:[prompt-fileselect-external]+
 * +pass:[&lt;Alt-F&gt;]+: +pass:[rl-forward-word]+
 * +pass:[&lt;Alt-Shift-Y&gt;]+: +pass:[prompt-yank --sel]+
 * +pass:[&lt;Alt-Y&gt;]+: +pass:[prompt-yank]+
@@ -2398,6 +2402,37 @@ Default:
 - +pass:[unknown]+: +pass:[debug]+
 - +pass:[warning]+: +pass:[debug]+
 
+[[content.javascript.log_message.excludes]]
+=== content.javascript.log_message.excludes
+Javascript messages to *not* show in the UI, despite a corresponding `content.javascript.log_message.levels` setting.
+Both keys and values are glob patterns, with the key matching the location of the error, and the value matching the error message.
+By default, the https://web.dev/csp/[Content security policy] violations triggered by qutebrowser's stylesheet handling are excluded, as those errors are to be expected and can't be easily handled by the underlying code.
+
+Type: <<types,Dict>>
+
+Default: 
+
+- +pass:[userscript:_qute_stylesheet]+:
+
+* +pass:[Refused to apply inline style because it violates the following Content Security Policy directive: *]+
+
+[[content.javascript.log_message.levels]]
+=== content.javascript.log_message.levels
+Javascript message sources/levels to show in the qutebrowser UI.
+When a JavaScript message is logged from a location matching the glob pattern given in the key, and is from one of the levels listed as value, it's surfaced as a message in the qutebrowser UI.
+By default, errors happening in qutebrowser internally or in userscripts are shown to the user.
+
+Type: <<types,Dict>>
+
+Default: 
+
+- +pass:[qute:*]+:
+
+* +pass:[error]+
+- +pass:[userscript:*]+:
+
+* +pass:[error]+
+
 [[content.javascript.modal_dialog]]
 === content.javascript.modal_dialog
 Use the standard JavaScript modal dialog for `alert()` and `confirm()`.
@@ -3447,6 +3482,7 @@ Default:
 * +pass:[[role=&quot;menuitem&quot;\]]+
 * +pass:[[role=&quot;menuitemcheckbox&quot;\]]+
 * +pass:[[role=&quot;menuitemradio&quot;\]]+
+* +pass:[[role=&quot;treeitem&quot;\]]+
 * +pass:[[ng-click\]]+
 * +pass:[[ngClick\]]+
 * +pass:[[data-ng-click\]]+
@@ -4000,6 +4036,14 @@ Type: <<types,Bool>>
 
 Default: +pass:[true]+
 
+[[search.wrap_messages]]
+=== search.wrap_messages
+Display messages when advancing through text matches at the top and bottom of the page, e.g. `Search hit TOP`.
+
+Type: <<types,Bool>>
+
+Default: +pass:[true]+
+
 [[session.default_name]]
 === session.default_name
 Name of the session to save by default.
@@ -4126,14 +4170,17 @@ Valid values:
  * +scroll+: Percentage of the current page position like `10%`.
  * +scroll_raw+: Raw percentage of the current page position like `10`.
  * +history+: Display an arrow when possible to go back/forward in history.
+ * +search_match+: A match count when searching, e.g. `Match [2/10]`.
  * +tabs+: Current active tab, e.g. `2`.
  * +keypress+: Display pressed keys when composing a vi command.
  * +progress+: Progress bar for the current page loading.
  * +text:foo+: Display the static text after the colon, `foo` in the example.
+ * +clock+: Display current time. The format can be changed by adding a format string via `clock:...`. For supported format strings, see https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes[the Python datetime documentation].
 
 Default: 
 
 - +pass:[keypress]+
+- +pass:[search_match]+
 - +pass:[url]+
 - +pass:[scroll]+
 - +pass:[history]+

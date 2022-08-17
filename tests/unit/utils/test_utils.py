@@ -30,7 +30,7 @@ import shlex
 import math
 import operator
 
-from PyQt5.QtCore import QUrl, QRect
+from PyQt5.QtCore import QUrl, QRect, QPoint
 from PyQt5.QtGui import QClipboard
 import pytest
 import hypothesis
@@ -603,6 +603,15 @@ class TestSanitizeFilename:
     LONG_EXTENSION = (LONG_FILENAME.replace("filename", ".extension")
                       .replace(".txt", ""))
 
+    # first four-byte unicode char
+    U10K = "\U00010000"
+
+    LONG_4BYTE = U10K * 64
+    LONG_4BYTE_SHORTENED = U10K * 60
+
+    LONG_4BYTE_EXT = f"{U10K * 8}.{U10K * 64}"
+    LONG_4BYTE_EXT_SHORTENED = f"{U10K}.{U10K * 59}"
+
     @pytest.mark.parametrize('inp, expected', [
         pytest.param('normal.txt', 'normal.txt',
                      marks=pytest.mark.fake_os('windows')),
@@ -629,6 +638,14 @@ class TestSanitizeFilename:
             LONG_EXTENSION.replace("this is a very long .extension",
                                    "this .extension"),
         ),
+        (
+            LONG_4BYTE,
+            LONG_4BYTE_SHORTENED,
+        ),
+        (
+            LONG_4BYTE_EXT,
+            LONG_4BYTE_EXT_SHORTENED,
+        )
     ])
     @pytest.mark.linux
     def test_shorten(self, inp, expected):
@@ -1026,3 +1043,57 @@ class TestParseRect:
             utils.parse_rect(s)
         except ValueError as e:
             print(e)
+
+
+class TestParsePoint:
+
+    @pytest.mark.parametrize('value, expected', [
+        ('1,1', QPoint(1, 1)),
+        ('123,789', QPoint(123, 789)),
+        ('-123,-789', QPoint(-123, -789)),
+    ])
+    def test_valid(self, value, expected):
+        assert utils.parse_point(value) == expected
+
+    @pytest.mark.parametrize('value, message', [
+        ('1x1', "String 1x1 does not match X,Y"),
+        ('1e0,1', "String 1e0,1 does not match X,Y"),
+        ('a,1', "String a,1 does not match X,Y"),
+        ('¹,1', "String ¹,1 does not match X,Y"),
+        ('1,,1', "String 1,,1 does not match X,Y"),
+        ('1', "String 1 does not match X,Y"),
+    ])
+    def test_invalid(self, value, message):
+        with pytest.raises(ValueError) as excinfo:
+            utils.parse_point(value)
+        assert str(excinfo.value) == message
+
+    @hypothesis.given(strategies.text())
+    def test_hypothesis_text(self, s):
+        try:
+            utils.parse_point(s)
+        except ValueError as e:
+            print(e)
+
+    @hypothesis.given(strategies.tuples(
+        strategies.integers(),
+        strategies.integers(),
+    ).map(lambda t: ",".join(map(str, t))))
+    def test_hypothesis_sophisticated(self, s):
+        try:
+            utils.parse_point(s)
+        except ValueError as e:
+            print(e)
+
+
+@pytest.mark.parametrize("patterns, value, expected", [
+    ([], "test", None),  # no patterns
+    (["TEST"], "test", None),  # case sensitive
+    (["test"], "test", "test"),  # trivial match
+    (["test1", "test2", "test3"], "test2", "test2"),  # multiple patterns
+    (["test*", "other*"], "testbla", "test*"),  # glob match
+    (["t*", "test*"], "test", "t*"),  # first match
+    (["test*", "t*"], "test", "test*"),  # first match
+])
+def test_match_globs(patterns, value, expected):
+    assert utils.match_globs(patterns, value) == expected

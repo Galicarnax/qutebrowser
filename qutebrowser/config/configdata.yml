@@ -72,6 +72,13 @@ search.wrap:
     Wrap around at the top and bottom of the page when advancing through text
     matches using `:search-next` and `:search-prev`.
 
+search.wrap_messages:
+  type: Bool
+  default: true
+  desc: >-
+    Display messages when advancing through text matches at the top and bottom
+    of the page, e.g. `Search hit TOP`.
+
 new_instance_open_target:
   type:
     name: String
@@ -933,6 +940,56 @@ content.javascript.log:
     The following levels are valid: `none`, `debug`, `info`, `warning`,
     `error`.
 
+content.javascript.log_message:
+  renamed: content.javascript.log_message.levels
+
+content.javascript.log_message.levels:
+  type:
+    name: Dict
+    none_ok: true
+    keytype: String
+    valtype:
+      name: FlagList
+      valid_values:
+        - info: Show JS info as messages.
+        - warning: Show JS warnings as messages.
+        - error: Show JS errors as messages.
+  default:
+    "qute:*": ["error"]
+    "userscript:*": ["error"]
+  desc: >-
+    Javascript message sources/levels to show in the qutebrowser UI.
+
+    When a JavaScript message is logged from a location matching the glob
+    pattern given in the key, and is from one of the levels listed as value,
+    it's surfaced as a message in the qutebrowser UI.
+
+    By default, errors happening in qutebrowser internally or in userscripts are
+    shown to the user.
+
+content.javascript.log_message.excludes:
+  type:
+    name: Dict
+    keytype: String
+    none_ok: true
+    valtype:
+      name: List
+      valtype: String
+  default:
+    "userscript:_qute_stylesheet":
+      - "Refused to apply inline style because it violates the following Content
+        Security Policy directive: *"
+  desc: >-
+    Javascript messages to *not* show in the UI, despite a corresponding
+    `content.javascript.log_message.levels` setting.
+
+    Both keys and values are glob patterns, with the key matching the location
+    of the error, and the value matching the error message.
+
+    By default, the https://web.dev/csp/[Content security policy] violations
+    triggered by qutebrowser's stylesheet handling are excluded, as those errors
+    are to be expected and can't be easily handled by the underlying code.
+
 content.javascript.modal_dialog:
   type: Bool
   default: false
@@ -1685,6 +1742,7 @@ hints.selectors:
       - '[role="menuitem"]'
       - '[role="menuitemcheckbox"]'
       - '[role="menuitemradio"]'
+      - '[role="treeitem"]'
       - '[ng-click]'
       - '[ngClick]'
       - '[data-ng-click]'
@@ -2057,12 +2115,17 @@ statusbar.widgets:
         - scroll_raw: "Raw percentage of the current page position like `10`."
         - history: "Display an arrow when possible to go back/forward in
           history."
+        - search_match: "A match count when searching, e.g. `Match [2/10]`."
         - tabs: "Current active tab, e.g. `2`."
         - keypress: "Display pressed keys when composing a vi command."
         - progress: "Progress bar for the current page loading."
         - 'text:foo': "Display the static text after the colon, `foo` in the example."
+        - clock: "Display current time. The format can be changed by adding a
+         format string via `clock:...`. For supported format strings, see
+         https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes[the
+         Python datetime documentation]."
     none_ok: true
-  default: ['keypress', 'url', 'scroll', 'history', 'tabs', 'progress']
+  default: ['keypress', 'search_match', 'url', 'scroll', 'history', 'tabs', 'progress']
   desc: "List of widgets displayed in the statusbar."
 
 ## tabs
@@ -3788,6 +3851,7 @@ bindings.default:
       <Down>: prompt-item-focus next
       <Alt-Y>: prompt-yank
       <Alt-Shift-Y>: prompt-yank --sel
+      <Alt-E>: prompt-fileselect-external
       <Ctrl-B>: rl-backward-char
       <Ctrl-F>: rl-forward-char
       <Alt-B>: rl-backward-word
