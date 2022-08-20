@@ -952,7 +952,12 @@ class CommandDispatcher:
         if count is not None:
             index = str(count)
 
-        tabbed_browser, tab = self._resolve_tab_index(index)
+        tabbed_browser, tab = None, None
+        try:
+            tabbed_browser, tab = self._resolve_tab_index(index)
+        except cmdutils.CommandError:
+            self.openurl(f"{index}", tab=True)
+            return
 
         window = tabbed_browser.widget.window()
         mainwindow.raise_window(window)
