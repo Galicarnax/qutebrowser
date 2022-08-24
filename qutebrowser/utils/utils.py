@@ -26,6 +26,7 @@ import re
 import sys
 import enum
 import json
+import fnmatch
 import datetime
 import traceback
 import functools
@@ -33,7 +34,7 @@ import contextlib
 import shlex
 import mimetypes
 from typing import (Any, Callable, IO, Iterator,
-                    Optional, Sequence, Tuple, Type, Union,
+                    Optional, Sequence, Tuple, List, Type, Union,
                     TypeVar, TYPE_CHECKING)
 try:
     # Protocol was added in Python 3.8
@@ -44,7 +45,7 @@ except ImportError:  # pragma: no cover
 
             """Empty stub at runtime."""
 
-from PyQt5.QtCore import QUrl, QVersionNumber, QRect
+from PyQt5.QtCore import QUrl, QVersionNumber, QRect, QPoint
 from PyQt5.QtGui import QClipboard, QDesktopServices
 from PyQt5.QtWidgets import QApplication
 
@@ -839,3 +840,28 @@ def parse_rect(s: str) -> QRect:
         raise ValueError("Invalid rectangle")
 
     return rect
+
+
+def parse_point(s: str) -> QPoint:
+    """Parse a point string like 13,-42."""
+    try:
+        x, y = map(int, s.split(',', maxsplit=1))
+    except ValueError:
+        raise ValueError(f"String {s} does not match X,Y")
+
+    try:
+        return QPoint(x, y)
+    except OverflowError as e:
+        raise ValueError(e)
+
+
+def match_globs(patterns: List[str], value: str) -> Optional[str]:
+    """Match a list of glob-like patterns against a value.
+
+    Return:
+        The first matching pattern if there was a match, None with no match.
+    """
+    for pattern in patterns:
+        if fnmatch.fnmatchcase(name=value, pat=pattern):
+            return pattern
+    return None

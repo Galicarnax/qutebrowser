@@ -31,7 +31,7 @@ from qutebrowser.keyinput import modeman
 from qutebrowser.utils import usertypes, log, objreg, utils
 from qutebrowser.mainwindow.statusbar import (backforward, command, progress,
                                               keystring, percentage, url,
-                                              tabindex, textbase)
+                                              tabindex, textbase, clock, searchmatch)
 
 
 @dataclasses.dataclass
@@ -143,6 +143,7 @@ class StatusBar(QWidget):
         url: The UrlText widget in the statusbar.
         prog: The Progress widget in the statusbar.
         cmd: The Command widget in the statusbar.
+        search_match: The SearchMatch widget in the statusbar.
         _hbox: The main QHBoxLayout.
         _stack: The QStackedLayout with cmd/txt widgets.
         _win_id: The window ID the statusbar is associated with.
@@ -193,12 +194,15 @@ class StatusBar(QWidget):
         self.cmd.hide_cmd.connect(self._hide_cmd_widget)
         self._hide_cmd_widget()
 
+        self.search_match = searchmatch.SearchMatch()
+
         self.url = url.UrlText()
         self.percentage = percentage.Percentage()
         self.backforward = backforward.Backforward()
         self.tabindex = tabindex.TabIndex()
         self.keystring = keystring.KeyString()
         self.prog = progress.Progress(self)
+        self.clock = clock.Clock()
         self._text_widgets = []
         self._draw_widgets()
 
@@ -207,6 +211,33 @@ class StatusBar(QWidget):
 
     def __repr__(self):
         return utils.get_repr(self)
+
+    def _get_widget_from_config(self, key):
+        """Return the widget that fits with config string key."""
+        if key == 'url':
+            return self.url
+        elif key == 'scroll':
+            return self.percentage
+        elif key == 'scroll_raw':
+            return self.percentage
+        elif key == 'history':
+            return self.backforward
+        elif key == 'tabs':
+            return self.tabindex
+        elif key == 'keypress':
+            return self.keystring
+        elif key == 'progress':
+            return self.prog
+        elif key == 'search_match':
+            return self.search_match
+        elif key.startswith('text:'):
+            new_text_widget = textbase.TextBase()
+            self._text_widgets.append(new_text_widget)
+            return new_text_widget
+        elif key.startswith('clock:') or key == 'clock':
+            return self.clock
+        else:
+            raise utils.Unreachable(key)
 
     @pyqtSlot(str)
     def _on_config_changed(self, option):
@@ -225,47 +256,36 @@ class StatusBar(QWidget):
 
         # Read the list and set widgets accordingly
         for segment in config.val.statusbar.widgets:
-            if segment == 'url':
-                self._hbox.addWidget(self.url)
-                self.url.show()
-            elif segment == 'scroll':
-                self._hbox.addWidget(self.percentage)
-                self.percentage.show()
-            elif segment == 'scroll_raw':
-                self._hbox.addWidget(self.percentage)
-                self.percentage.set_raw()
-                self.percentage.show()
-            elif segment == 'history':
-                self._hbox.addWidget(self.backforward)
-                self.backforward.enabled = True
+            widget = self._get_widget_from_config(segment)
+            self._hbox.addWidget(widget)
+
+            if segment == 'scroll_raw':
+                widget.set_raw()
+            elif segment in ('history', 'progress'):
+                widget.enabled = True
                 if tab:
-                    self.backforward.on_tab_changed(tab)
-            elif segment == 'tabs':
-                self._hbox.addWidget(self.tabindex)
-                self.tabindex.show()
-            elif segment == 'keypress':
-                self._hbox.addWidget(self.keystring)
-                self.keystring.show()
-            elif segment == 'progress':
-                self._hbox.addWidget(self.prog)
-                self.prog.enabled = True
-                if tab:
-                    self.prog.on_tab_changed(tab)
+                    widget.on_tab_changed(tab)
+
+                # Do not call .show() for these widgets. They are not always shown, and
+                # dynamically show/hide themselves in their on_tab_changed() methods.
+                continue
             elif segment.startswith('text:'):
-                cur_widget = textbase.TextBase()
-                self._text_widgets.append(cur_widget)
-                cur_widget.setText(segment.split(':', maxsplit=1)[1])
-                self._hbox.addWidget(cur_widget)
-                cur_widget.show()
-            else:
-                raise utils.Unreachable(segment)
+                widget.setText(segment.split(':', maxsplit=1)[1])
+            elif segment.startswith('clock:') or segment == 'clock':
+                split_segment = segment.split(':', maxsplit=1)
+                if len(split_segment) == 2 and split_segment[1]:
+                    widget.format = split_segment[1]
+                else:
+                    widget.format = '%X'
+
+            widget.show()
 
     def _clear_widgets(self):
         """Clear widgets before redrawing them."""
         # Start with widgets hidden and show them when needed
         for widget in [self.url, self.percentage,
                        self.backforward, self.tabindex,
-                       self.keystring, self.prog, *self._text_widgets]:
+                       self.keystring, self.prog, self.clock, *self._text_widgets]:
             assert isinstance(widget, QWidget)
             widget.hide()
             self._hbox.removeWidget(widget)

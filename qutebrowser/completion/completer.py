@@ -40,7 +40,8 @@ class CompletionInfo:
     """Context passed into all completion functions."""
 
     config: config.Config
-    keyconf: config.KeyConfig  # pylint: disable=used-before-assignment
+    # pylint: disable-next=used-before-assignment
+    keyconf: config.KeyConfig  # type: ignore[name-defined]
     win_id: int
     cur_tab: 'browsertab.AbstractTab'
 
@@ -164,6 +165,7 @@ class Completer(QObject):
                     # cursor is in a space between two existing words
                     parts.insert(i, '')
                 prefix = [x.strip() for x in parts[:i]]
+                # pylint: disable-next=unnecessary-list-index-lookup
                 center = parts[i].strip()
                 # strip trailing whitespace included as a separate token
                 postfix = [x.strip() for x in parts[i+1:] if not x.isspace()]

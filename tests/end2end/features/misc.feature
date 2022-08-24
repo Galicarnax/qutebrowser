@@ -143,6 +143,18 @@ Feature: Various utility commands.
         Then the error "[Errno 2] *: '/nonexistentfile'" should be shown
         And "No output or error" should not be logged
 
+    @qtwebkit_skip
+    Scenario: CSP errors in qutebrowser stylesheet script
+        When I open restrictive-csp
+        Then the javascript message "Refused to apply inline style because it violates the following Content Security Policy directive: *" should be logged
+
+    @qtwebkit_skip
+    Scenario: Third-party iframes in qutebrowser stylesheet script
+        When I load a third-party iframe
+        # rerun set_css in stylesheet.js
+        And I set content.user_stylesheets to []
+        Then the javascript message "Failed to style frame: Blocked a frame with origin * from accessing *" should be logged
+
     # :debug-webaction
 
     Scenario: :debug-webaction with valid value
@@ -436,7 +448,7 @@ Feature: Various utility commands.
     Scenario: Clicking an element with unknown ID
         When I open data/click_element.html
         And I run :click-element id blah
-        Then the error "No element found with id blah!" should be shown
+        Then the error "No element found with ID "blah"!" should be shown
 
     Scenario: Clicking an element by ID
         When I open data/click_element.html
@@ -456,6 +468,49 @@ Feature: Various utility commands.
         And the following tabs should be open:
             - data/click_element.html
             - data/hello.txt (active)
+
+    Scenario: Clicking an element by CSS selector
+        When I open data/click_element.html
+        And I run :click-element css .clickable
+        Then the javascript message "click_element CSS selector" should be logged
+
+    Scenario: Clicking an element with non-unique filter
+        When I open data/click_element.html
+        And I run :click-element css span
+        Then the error "Multiple elements found matching CSS selector "span"!" should be shown
+
+    Scenario: Clicking first element matching a selector
+        When I open data/click_element.html
+        And I run :click-element --select-first css span
+        Then the javascript message "click_element clicked" should be logged
+
+    Scenario: Clicking an element by position
+        When I open data/click_element.html
+        And I run :click-element position 20,42
+        Then the javascript message "click_element position" should be logged
+
+    Scenario: Clicking an element with invalid position
+        When I open data/click_element.html
+        And I run :click-element position 20.42
+        Then the error "String 20.42 does not match X,Y" should be shown
+
+    Scenario: Clicking an element with non-integer position
+        When I open data/click_element.html
+        And I run :click-element position 20,42.001
+        Then the error "String 20,42.001 does not match X,Y" should be shown
+
+    Scenario: Clicking on focused element when there is none
+        When I open data/click_element.html
+        # Need to loose focus on input element
+        And I run :click-element position 20,42
+        And I wait for the javascript message "click_element position"
+        And I run :click-element focused
+        Then the error "No element found with focus!" should be shown
+
+    Scenario: Clicking on focused element
+        When I open data/click_element.html
+        And I run :click-element focused
+        Then "Entering mode KeyMode.insert (reason: clicking input)" should be logged
 
     ## :command-history-{prev,next}
 

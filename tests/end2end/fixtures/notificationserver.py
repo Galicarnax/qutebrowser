@@ -23,7 +23,7 @@ from typing import Dict, List
 
 from PyQt5.QtCore import QObject, QByteArray, QUrl, pyqtSlot
 from PyQt5.QtGui import QImage
-from PyQt5.QtDBus import QDBusConnection, QDBusArgument, QDBusMessage
+from PyQt5.QtDBus import QDBusConnection, QDBusMessage
 import pytest
 
 from qutebrowser.browser.webengine import notification
@@ -194,7 +194,7 @@ class TestNotificationServer(QObject):
     # pylint: disable=invalid-name
 
     @pyqtSlot(QDBusMessage, result="uint")
-    def Notify(self, dbus_message: QDBusMessage) -> QDBusArgument:
+    def Notify(self, dbus_message: QDBusMessage) -> int:
         assert dbus_message.signature() == 'susssasa{sv}i'
         assert dbus_message.type() == QDBusMessage.MethodCallMessage
 
@@ -222,6 +222,14 @@ class TestNotificationServer(QObject):
         return capabilities
 
     @pyqtSlot(QDBusMessage)
+    def GetServerInformation(self, message: QDBusMessage) -> None:
+        name = "test notification server"
+        vendor = "qutebrowser"
+        version = "v0.0.1"
+        spec_version = "1.2"
+        self._bus.send(message.createReply([name, vendor, version, spec_version]))
+
+    @pyqtSlot(QDBusMessage)
     def CloseNotification(self, dbus_message: QDBusMessage) -> None:
         assert dbus_message.signature() == 'u'
         assert dbus_message.type() == QDBusMessage.MethodCallMessage
@@ -231,14 +239,16 @@ class TestNotificationServer(QObject):
 
 
 @pytest.fixture(scope='module')
-def notification_server(qapp):
+def notification_server(qapp, quteproc_process):
     if utils.is_windows:
         # The QDBusConnection destructor seems to cause error messages (and potentially
         # segfaults) on Windows, so we bail out early in that case. We still try to get
         # a connection on macOS, since it's theoretically possible to run DBus there.
         pytest.skip("Skipping DBus on Windows")
 
-    server = TestNotificationServer(notification.DBusNotificationAdapter.TEST_SERVICE)
+    qb_pid = quteproc_process.proc.pid()
+    server = TestNotificationServer(
+        f"{notification.DBusNotificationAdapter.TEST_SERVICE}{qb_pid}")
     registered = server.register()
     if not registered:
         assert not (utils.is_linux and testutils.ON_CI), "Expected DBus on Linux CI"

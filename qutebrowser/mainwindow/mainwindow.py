@@ -579,6 +579,9 @@ class MainWindow(QWidget):
         self.tabbed_browser.cur_load_status_changed.connect(
             self.status.url.on_load_status_changed)
 
+        self.tabbed_browser.cur_search_match_changed.connect(
+            self.status.search_match.set_match)
+
         self.tabbed_browser.cur_caret_selection_toggled.connect(
             self.status.on_caret_selection_toggled)
 
@@ -608,6 +611,15 @@ class MainWindow(QWidget):
         if hidden:
             window_flags |= Qt.CustomizeWindowHint | Qt.NoDropShadowWindowHint
         self.setWindowFlags(window_flags)
+
+        if utils.is_mac and hidden:
+            from ctypes import c_void_p
+            # pylint: disable=import-error
+            from objc import objc_object
+            from AppKit import NSWindowStyleMaskResizable
+            win = objc_object(c_void_p=c_void_p(int(self.winId()))).window()
+            win.setStyleMask_(win.styleMask() | NSWindowStyleMaskResizable)
+
         if refresh_window:
             self.show()
 

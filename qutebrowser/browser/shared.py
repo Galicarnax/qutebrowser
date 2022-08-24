@@ -149,11 +149,58 @@ _JS_LOGMAP: Mapping[str, Callable[[str], None]] = {
     'warning': log.js.warning,
     'error': log.js.error,
 }
+# Callables to use for content.javascript.log_message.
+# Note that the keys are JS log levels here, not config settings!
+_JS_LOGMAP_MESSAGE: Mapping[usertypes.JsLogLevel, Callable[[str], None]] = {
+    usertypes.JsLogLevel.info: message.info,
+    usertypes.JsLogLevel.warning: message.warning,
+    usertypes.JsLogLevel.error: message.error,
+}
 
 
-def javascript_log_message(level, source, line, msg):
+def _js_log_to_ui(
+    level: usertypes.JsLogLevel,
+    source: str,
+    line: int,
+    msg: str,
+) -> bool:
+    """Log a JS message to the UI, if configured accordingly.
+
+    Returns:
+        True if the log message has been shown as a qutebrowser message,
+        False otherwise.
+    """
+    logstring = f"[{source}:{line}] {msg}"
+    message_levels = config.cache['content.javascript.log_message.levels']
+    message_excludes = config.cache['content.javascript.log_message.excludes']
+
+    match = utils.match_globs(message_levels, source)
+    if match is None:
+        return False
+    if level.name not in message_levels[match]:
+        return False
+
+    exclude_match = utils.match_globs(message_excludes, source)
+    if exclude_match is not None:
+        if utils.match_globs(message_excludes[exclude_match], msg) is not None:
+            return False
+
+    func = _JS_LOGMAP_MESSAGE[level]
+    func(f"JS: {logstring}")
+    return True
+
+
+def javascript_log_message(
+    level: usertypes.JsLogLevel,
+    source: str,
+    line: int,
+    msg: str,
+) -> None:
     """Display a JavaScript log message."""
-    logstring = "[{}:{}] {}".format(source, line, msg)
+    if _js_log_to_ui(level=level, source=source, line=line, msg=msg):
+        return
+
+    logstring = f"[{source}:{line}] {msg}"
     logger = _JS_LOGMAP[config.cache['content.javascript.log'][level.name]]
     logger(logstring)
 
@@ -405,7 +452,7 @@ class FileSelectionMode(enum.Enum):
 
 
 def choose_file(qb_mode: FileSelectionMode) -> List[str]:
-    """Select file(s)/folder for uploading, using external command defined in config.
+    """Select file(s)/folder for up-/downloading, using an external command.
 
     Args:
         qb_mode: File selection mode
@@ -451,7 +498,7 @@ def _execute_fileselect_command(
     """Execute external command to choose file.
 
     Args:
-        multiple: Should selecting multiple files be allowed.
+        qb_mode: Should selecting multiple files be allowed.
         tmpfilename: Path to the temporary file if used, otherwise None.
 
     Return:
