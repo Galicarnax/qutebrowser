@@ -217,7 +217,7 @@
 |<<editor.encoding,editor.encoding>>|Encoding to use for the editor.
 |<<editor.remove_file,editor.remove_file>>|Delete the temporary file upon closing the editor.
 |<<fileselect.folder.command,fileselect.folder.command>>|Command (and arguments) to use for selecting a single folder in forms. The command should write the selected folder path to the specified file or stdout.
-|<<fileselect.handler,fileselect.handler>>|Handler for selecting file(s) in forms. If `external`, then the commands specified by `fileselect.single_file.command` and `fileselect.multiple_files.command` are used to select one or multiple files respectively.
+|<<fileselect.handler,fileselect.handler>>|Handler for selecting file(s) in forms. If `external`, then the commands specified by `fileselect.single_file.command`, `fileselect.multiple_files.command` and `fileselect.folder.command` are used to select one file, multiple files, and folders, respectively.
 |<<fileselect.multiple_files.command,fileselect.multiple_files.command>>|Command (and arguments) to use for selecting multiple files in forms. The command should write the selected file paths to the specified file or to stdout, separated by newlines.
 |<<fileselect.single_file.command,fileselect.single_file.command>>|Command (and arguments) to use for selecting a single file in forms. The command should write the selected file path to the specified file or stdout.
 |<<fonts.completion.category,fonts.completion.category>>|Font used in the completion categories.
@@ -338,6 +338,7 @@
 |<<tabs.show_switching_delay,tabs.show_switching_delay>>|Duration (in milliseconds) to show the tab bar before hiding it when tabs.show is set to 'switching'.
 |<<tabs.tabs_are_windows,tabs.tabs_are_windows>>|Open a new window for every tab.
 |<<tabs.title.alignment,tabs.title.alignment>>|Alignment of the text inside of tabs.
+|<<tabs.title.elide,tabs.title.elide>>|Position of ellipsis in truncated title of tabs.
 |<<tabs.title.format,tabs.title.format>>|Format to use for the tab title.
 |<<tabs.title.format_pinned,tabs.title.format_pinned>>|Format to use for the tab title for pinned tabs. The same placeholders like for `tabs.title.format` are defined.
 |<<tabs.tooltips,tabs.tooltips>>|Show tooltips on tabs.
@@ -2414,13 +2415,13 @@ Default:
 
 - +pass:[userscript:_qute_stylesheet]+:
 
-* +pass:[Refused to apply inline style because it violates the following Content Security Policy directive: *]+
+* +pass:[*Refused to apply inline style because it violates the following Content Security Policy directive: *]+
 
 [[content.javascript.log_message.levels]]
 === content.javascript.log_message.levels
 Javascript message sources/levels to show in the qutebrowser UI.
 When a JavaScript message is logged from a location matching the glob pattern given in the key, and is from one of the levels listed as value, it's surfaced as a message in the qutebrowser UI.
-By default, errors happening in qutebrowser internally or in userscripts are shown to the user.
+By default, errors happening in qutebrowser internally are shown to the user.
 
 Type: <<types,Dict>>
 
@@ -2432,6 +2433,7 @@ Default:
 - +pass:[userscript:*]+:
 
 * +pass:[error]+
+- +pass:[userscript:GM-*]+: empty
 
 [[content.javascript.modal_dialog]]
 === content.javascript.modal_dialog
@@ -3011,7 +3013,7 @@ Default:
 
 [[fileselect.handler]]
 === fileselect.handler
-Handler for selecting file(s) in forms. If `external`, then the commands specified by `fileselect.single_file.command` and `fileselect.multiple_files.command` are used to select one or multiple files respectively.
+Handler for selecting file(s) in forms. If `external`, then the commands specified by `fileselect.single_file.command`, `fileselect.multiple_files.command` and `fileselect.folder.command` are used to select one file, multiple files, and folders, respectively.
 
 Type: <<types,String>>
 
@@ -4481,6 +4483,21 @@ Valid values:
 
 Default: +pass:[left]+
 
+[[tabs.title.elide]]
+=== tabs.title.elide
+Position of ellipsis in truncated title of tabs.
+
+Type: <<types,ElidePosition>>
+
+Valid values:
+
+ * +left+
+ * +right+
+ * +middle+
+ * +none+
+
+Default: +pass:[right]+
+
 [[tabs.title.format]]
 === tabs.title.format
 Format to use for the tab title.
@@ -4762,6 +4779,7 @@ When setting from a string, `1`, `yes`, `on` and `true` count as true, while `0`
 
 When setting from a string, pass a json-like dict, e.g. `{"key", "value"}`.
 |Directory|A directory on the local filesystem.
+|ElidePosition|Position of ellipsis in truncated text.
 |Encoding|Setting for a python encoding.
 |File|A file on the local filesystem.
 |FlagList|A list of flags.
