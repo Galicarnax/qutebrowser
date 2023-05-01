@@ -249,7 +249,6 @@ Feature: Searching on a page
 
     ## wrapping prevented
 
-    @qt>=5.14
     Scenario: Preventing wrapping at the top of the page
         When I set search.ignore_case to always
         And I set search.wrap to false
@@ -261,7 +260,6 @@ Feature: Searching on a page
         And I run :search-next
         Then the message "Search hit TOP" should be shown
 
-    @qt>=5.14
     Scenario: Preventing wrapping at the bottom of the page
         When I set search.ignore_case to always
         And I set search.wrap to false
@@ -274,7 +272,7 @@ Feature: Searching on a page
 
     ## search match counter
 
-    @qtwebkit_skip @qt>=5.14
+    @qtwebkit_skip
     Scenario: Setting search match counter on search
         When I set search.ignore_case to always
         And I set search.wrap to true
@@ -282,7 +280,7 @@ Feature: Searching on a page
         And I wait for "search found ba" in the log
         Then "Setting search match text to 1/5" should be logged
 
-    @qtwebkit_skip @qt>=5.14
+    @qtwebkit_skip
     Scenario: Updating search match counter on search-next
         When I set search.ignore_case to always
         And I set search.wrap to true
@@ -294,7 +292,7 @@ Feature: Searching on a page
         And I wait for "next_result found ba" in the log
         Then "Setting search match text to 3/5" should be logged
 
-    @qtwebkit_skip @qt>=5.14
+    @qtwebkit_skip
     Scenario: Updating search match counter on search-prev with wrapping
         When I set search.ignore_case to always
         And I set search.wrap to true
@@ -304,7 +302,7 @@ Feature: Searching on a page
         And I wait for the message "Search hit TOP, continuing at BOTTOM"
         Then "Setting search match text to 5/5" should be logged
 
-    @qtwebkit_skip @qt>=5.14
+    @qtwebkit_skip
     Scenario: Updating search match counter on search-prev without wrapping
         When I set search.ignore_case to always
         And I set search.wrap to false
@@ -365,20 +363,20 @@ Feature: Searching on a page
             - data/search.html
             - data/hello.txt (active)
 
-    # Too flaky
     @qtwebkit_skip: Not supported in qtwebkit @skip
     Scenario: Follow a searched link in an iframe
         When I open data/iframe_search.html
+        And I wait for "* search loaded" in the log
         And I run :tab-only
         And I run :search follow
         And I wait for "search found follow" in the log
         And I run :selection-follow
         Then "navigation request: url http://localhost:*/data/hello.txt, type Type.link_clicked, is_main_frame False" should be logged
 
-    # Too flaky
     @qtwebkit_skip: Not supported in qtwebkit @skip
     Scenario: Follow a tabbed searched link in an iframe
         When I open data/iframe_search.html
+        And I wait for "* search loaded" in the log
         And I run :tab-only
         And I run :search follow
         And I wait for "search found follow" in the log

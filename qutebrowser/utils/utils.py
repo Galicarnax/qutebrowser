@@ -45,9 +45,9 @@ except ImportError:  # pragma: no cover
 
             """Empty stub at runtime."""
 
-from PyQt5.QtCore import QUrl, QVersionNumber, QRect, QPoint
-from PyQt5.QtGui import QClipboard, QDesktopServices
-from PyQt5.QtWidgets import QApplication
+from qutebrowser.qt.core import QUrl, QVersionNumber, QRect, QPoint
+from qutebrowser.qt.gui import QClipboard, QDesktopServices
+from qutebrowser.qt.widgets import QApplication
 
 import yaml
 try:
@@ -270,7 +270,7 @@ class FakeIOStream(io.TextIOBase):
 
     def __init__(self, write_func: Callable[[str], int]) -> None:
         super().__init__()
-        self.write = write_func  # type: ignore[assignment]
+        self.write = write_func  # type: ignore[method-assign]
 
 
 @contextlib.contextmanager
@@ -536,7 +536,7 @@ def set_clipboard(data: str, selection: bool = False) -> None:
         log.misc.debug("Setting fake {}: {}".format(what, json.dumps(data)))
         fake_clipboard = data
     else:
-        mode = QClipboard.Selection if selection else QClipboard.Clipboard
+        mode = QClipboard.Mode.Selection if selection else QClipboard.Mode.Clipboard
         QApplication.clipboard().setText(data, mode=mode)
 
 
@@ -562,7 +562,7 @@ def get_clipboard(selection: bool = False, fallback: bool = False) -> str:
         data = fake_clipboard
         fake_clipboard = None
     else:
-        mode = QClipboard.Selection if selection else QClipboard.Clipboard
+        mode = QClipboard.Mode.Selection if selection else QClipboard.Mode.Clipboard
         data = QApplication.clipboard().text(mode=mode)
 
     target = "Primary selection" if selection else "Clipboard"

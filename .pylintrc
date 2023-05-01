@@ -16,6 +16,8 @@ load-plugins=qute_pylint.config,
              pylint.extensions.typing,
              pylint.extensions.docparams,
              pylint.extensions.private_import,
+             pylint.extensions.dict_init_mutate,
+             pylint.extensions.dunder
 
 persistent=n
 py-version=3.7
@@ -58,6 +60,8 @@ disable=locally-disabled,
         missing-type-doc,
         missing-param-doc,
         useless-param-doc,
+        wrong-import-order,  # FIXME:qt6 (lint)
+        ungrouped-imports,  # FIXME:qt6 (lint)
 
 [BASIC]
 function-rgx=[a-z_][a-z0-9_]{2,50}$
@@ -72,7 +76,8 @@ no-docstring-rgx=(^_|^main$)
 class-const-naming-style = snake_case
 
 [FORMAT]
-max-line-length=88
+# FIXME:qt6 (lint) down to 88 again once we use black
+max-line-length=190
 ignore-long-lines=(<?https?://|file://|^# Copyright 201\d|link:)
 expected-line-ending-format=LF
 
