@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2018-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -91,15 +89,18 @@ def _print_preview(tab: apitypes.Tab) -> None:
     diag.exec()
 
 
-def _print_pdf(tab: apitypes.Tab, filename: str) -> None:
+def _print_pdf(tab: apitypes.Tab, path: pathlib.Path) -> None:
     """Print to the given PDF file."""
     tab.printing.check_pdf_support()
-    filename = os.path.expanduser(filename)
-    directory = os.path.dirname(filename)
-    if directory and not os.path.exists(directory):
-        os.mkdir(directory)
-    tab.printing.to_pdf(filename)
-    _LOGGER.debug("Print to file: {}".format(filename))
+    path = path.expanduser()
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise cmdutils.CommandError(e)
+
+    tab.printing.to_pdf(path)
+    _LOGGER.debug(f"Print to file: {path}")
 
 
 @cmdutils.register(name='print')
@@ -107,7 +108,7 @@ def _print_pdf(tab: apitypes.Tab, filename: str) -> None:
 @cmdutils.argument('pdf', flag='f', metavar='file')
 def printpage(tab: Optional[apitypes.Tab],
               preview: bool = False, *,
-              pdf: str = None) -> None:
+              pdf: Optional[pathlib.Path] = None) -> None:
     """Print the current/[count]th tab.
 
     Args:

@@ -50,18 +50,26 @@ Added
     * `qutedmenu` gained new `window` and `private` options.
     * `qute-keepassxc` now supports unlock-on-demand, multiple account
       selection via rofi, and inserting TOTP-codes (experimental).
+- New `qt.chromium.experimental_web_platform_features` setting, which is enabled
+  on Qt 5 by default, to maximize compatibility with websites despite an aging
+  Chromium backend.
 - New `colors.webpage.darkmode.increase_text_contrast` setting for Qt 6.3+
+- New `fonts.tooltip`, `colors.tooltip.bg` and `colors.tooltip.fg` settings.
+- New `log-qt-events` debug flag for `-D`
 
 Removed
 ~~~~~~~
 
-- Support for Python 3.6 is dropped, as it's been
-  https://discuss.python.org/t/python-3-6-rides-into-the-sunset/12964[end-of-life upstream]
-  since December 2021. Python 3.7.0 or newer is now required.
+- Python 3.8.0 or newer is now required.
+  - Support for Python 3.6 and 3.7 is dropped, as they both reached
+    their [end of life] in December 2021 and June 2023, respectively.
 - Support for Qt/PyQt before 5.15.0 and QtWebEngine before 5.15.2 are now
   dropped, as older Qt versions are
   https://endoflife.date/qt[end-of-life upstream] since mid/late 2020
   (5.13/5.14) and late 2021 (5.12 LTS).
+- The `--enable-webengine-inspector` flag is now dropped. It used to be ignored
+  but still accepted, to allow doing a `:restart` from versions older than v2.0.0.
+  Thus, switching from v1.x.x directly to v3.0.0 via `:restart` will not be possible.
 - It's planned to drop support for various legacy platforms and libraries which
   are unsupported upstream, such as:
   * The QtWebKit backend
@@ -136,6 +144,20 @@ Changed
 - `:config-diff` now has an `--include-hidden` flag, which also shows
   internally-set settings.
 - Improved error messages when `:spawn` can't find an executable.
+- When a process fails, the error message now suggests using `:process PID` with
+  the correct PID (rather than always showing the latest process, which might not
+  be the failing one)
+- When a process got killed with `SIGTERM`, no error message is now displayed
+  anymore (unless started with `:spawn --verbose`). 
+- When a process got killed by a signal, the signal name is now displayed in
+  the message.
+- The qute-pass will now try looking up candidate pass entries based on the
+  calling tab's verbatim netloc (hostname including port and username) if it
+  can't find a match with an earlier candidate (FQDN, IPv4 etc).
+- The `js-string-replaceall` quirk is now removed from the default
+  `content.site_specific_quirks.skip`, so that `String.replaceAll` is now
+  polyfilled on QtWebEngine < 5.15.3, hopefully improving website
+  compaitibility.
 
 Fixed
 ~~~~~
@@ -156,6 +178,10 @@ Fixed
   asciidoc rather than requiring a system-wide installation.
 - Crash with some notification servers when the server is quitting.
 - Crash when using QtWebKit with PAC and the file has an invalid encoding.
+- Crash with the "tiramisu" notification server.
+- Crash when the "herbe" notification presenter doesn't start correctly.
+- Crash when using `:print --pdf` with a directory where its parent directory
+  did not exist.
 
 [[v2.5.4]]
 v2.5.4 (2023-03-13)

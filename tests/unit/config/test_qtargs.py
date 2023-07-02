@@ -1,4 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 # Copyright 2017-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
@@ -22,6 +21,7 @@ import logging
 
 import pytest
 
+from qutebrowser.qt import machinery
 from qutebrowser import qutebrowser
 from qutebrowser.config import qtargs, configdata
 from qutebrowser.utils import usertypes, version
@@ -62,6 +62,7 @@ def reduce_args(config_stub, version_patcher, monkeypatch):
     version_patcher('5.15.3')
     config_stub.val.content.headers.referer = 'always'
     config_stub.val.scrolling.bar = 'never'
+    config_stub.val.qt.chromium.experimental_web_platform_features = 'never'
     monkeypatch.setattr(qtargs.utils, 'is_mac', False)
     # Avoid WebRTC pipewire feature
     monkeypatch.setattr(qtargs.utils, 'is_linux', False)
@@ -487,6 +488,20 @@ class TestWebEngineArgs:
         parsed = parser.parse_args([])
         args = qtargs.qt_args(parsed)
         assert '--lang=de' in args
+
+    @pytest.mark.parametrize('value, has_arg', [
+        ('always', True),
+        ('auto', machinery.IS_QT5),
+        ('never', False),
+    ])
+    def test_experimental_web_platform_features(
+        self, value, has_arg, parser, config_stub,
+    ):
+        config_stub.val.qt.chromium.experimental_web_platform_features = value
+
+        parsed = parser.parse_args([])
+        args = qtargs.qt_args(parsed)
+        assert ('--enable-experimental-web-platform-features' in args) == has_arg
 
     @pytest.mark.parametrize("version, expected", [
         ('5.15.2', False),

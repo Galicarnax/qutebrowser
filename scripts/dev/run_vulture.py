@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
@@ -31,7 +29,7 @@ import vulture
 
 import qutebrowser.app  # pylint: disable=unused-import
 from qutebrowser.extensions import loader
-from qutebrowser.misc import objects, sql
+from qutebrowser.misc import objects, sql, nativeeventfilter
 from qutebrowser.utils import utils, version, qtutils
 # To run the decorators from there
 # pylint: disable=unused-import
@@ -100,8 +98,6 @@ def whitelist_generator():  # noqa: C901
 
     for attr in ['msgs', 'priority', 'visit_attribute']:
         yield 'scripts.dev.pylint_checkers.config.' + attr
-    for attr in ['visit_call', 'process_module']:
-        yield 'scripts.dev.pylint_checkers.modeline.' + attr
 
     for name, _member in inspect.getmembers(configtypes, inspect.isclass):
         yield 'qutebrowser.config.configtypes.' + name
@@ -121,6 +117,9 @@ def whitelist_generator():  # noqa: C901
     for dist in version.Distribution:
         yield 'qutebrowser.utils.version.Distribution.{}'.format(dist.name)
 
+    for opcode in nativeeventfilter.XcbInputOpcodes:
+        yield f'qutebrowser.misc.nativeeventfilter.XcbInputOpcodes.{opcode.name}'
+
     # attrs
     yield 'qutebrowser.browser.webkit.network.networkmanager.ProxyId.hostname'
     yield 'qutebrowser.command.command.ArgInfo._validate_exclusive'
@@ -139,6 +138,9 @@ def whitelist_generator():  # noqa: C901
     yield 'world_id_type'
     yield 'ParserDictType'
     yield 'qutebrowser.config.configutils.Values._VmapKeyType'
+
+    # used in tests
+    yield 'qutebrowser.qt.machinery.SelectionReason.fake'
 
     # ELF
     yield 'qutebrowser.misc.elf.Endianness.big'
@@ -186,7 +188,10 @@ def run(files):
         whitelist_file.close()
 
         vult = vulture.Vulture(verbose=False)
-        vult.scavenge(files + [whitelist_file.name])
+        vult.scavenge(
+            files + [whitelist_file.name],
+            exclude=["qutebrowser/qt/_core_pyqtproperty.py"],
+        )
 
         os.remove(whitelist_file.name)
 

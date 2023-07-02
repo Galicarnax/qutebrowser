@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -116,11 +114,11 @@ def _apply_platform_markers(config, item):
         ('qt5_only',
          pytest.mark.skipif,
          not machinery.IS_QT5,
-         f"Only runs on Qt 5, not {machinery.WRAPPER}"),
+         f"Only runs on Qt 5, not {machinery.INFO.wrapper}"),
         ('qt6_only',
          pytest.mark.skipif,
          not machinery.IS_QT6,
-         f"Only runs on Qt 6, not {machinery.WRAPPER}"),
+         f"Only runs on Qt 6, not {machinery.INFO.wrapper}"),
         ('qt5_xfail', pytest.mark.xfail, machinery.IS_QT5, "Fails on Qt 5"),
         ('qt6_xfail', pytest.mark.skipif, machinery.IS_QT6, "Fails on Qt 6"),
         ('qtwebkit_openssl3_skip',

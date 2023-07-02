@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -65,7 +63,7 @@ from qutebrowser.keyinput import macros, eventfilter
 from qutebrowser.mainwindow import mainwindow, prompt, windowundo
 from qutebrowser.misc import (ipc, savemanager, sessions, crashsignal,
                               earlyinit, sql, cmdhistory, backendproblem,
-                              objects, quitter)
+                              objects, quitter, nativeeventfilter)
 from qutebrowser.utils import (log, version, message, utils, urlutils, objreg,
                                resources, usertypes, standarddir,
                                error, qtutils, debug)
@@ -523,6 +521,7 @@ def _init_modules(*, args):
     log.init.debug("Misc initialization...")
     macros.init()
     windowundo.init()
+    nativeeventfilter.init()
 
 
 class Application(QApplication):
@@ -562,11 +561,9 @@ class Application(QApplication):
         self.launch_time = datetime.datetime.now()
         self.focusObjectChanged.connect(self.on_focus_object_changed)
 
-        try:
-            self.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
-        except AttributeError:
+        if machinery.IS_QT5:
             # default and removed in Qt 6
-            pass
+            self.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
 
         self.new_window.connect(self._on_new_window)
 

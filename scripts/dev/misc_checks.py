@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -94,6 +92,9 @@ def check_changelog_urls(_args: argparse.Namespace = None) -> bool:
                 req, _version = recompile_requirements.parse_versioned_line(line)
                 if req.startswith('./'):
                     continue
+                if " @ " in req:  # vcs URL
+                    req = req.split(" @ ")[0]
+
                 all_requirements.add(req)
                 if req not in recompile_requirements.CHANGELOG_URLS:
                     missing.add(req)
@@ -268,6 +269,7 @@ def check_spelling(args: argparse.Namespace) -> Optional[bool]:
         pathlib.Path('scripts', 'dev', 'misc_checks.py'),
         pathlib.Path('scripts', 'dev', 'enums.txt'),
         pathlib.Path('qutebrowser', '3rdparty', 'pdfjs'),
+        pathlib.Path('qutebrowser', 'qt', '_core_pyqtproperty.py'),
         hint_data / 'ace' / 'ace.js',
         hint_data / 'bootstrap' / 'bootstrap.css',
     ]
@@ -399,6 +401,25 @@ def check_userscript_shebangs(_args: argparse.Namespace) -> bool:
     return ok
 
 
+def check_vim_modelines(args: argparse.Namespace) -> bool:
+    """Check that we're not using vim modelines."""
+    ok = True
+    try:
+        for path in _get_files(verbose=args.verbose):
+            with tokenize.open(str(path)) as f:
+                for num, line in enumerate(f, start=1):
+                    if not line.startswith("# vim:"):
+                        continue
+                    print(f"{path}:{num}: Remove vim modeline "
+                          "(deprecated in favor of .editorconfig)")
+                    ok = False
+    except Exception:
+        traceback.print_exc()
+        ok = False
+
+    return ok
+
+
 def main() -> int:
     checkers = {
         'git': check_git,
@@ -408,6 +429,7 @@ def main() -> int:
         'userscript-descriptions': check_userscripts_descriptions,
         'userscript-shebangs': check_userscript_shebangs,
         'changelog-urls': check_changelog_urls,
+        'vim-modelines': check_vim_modelines,
     }
 
     parser = argparse.ArgumentParser()

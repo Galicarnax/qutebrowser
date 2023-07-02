@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -189,7 +187,7 @@ class PromptQueue(QObject):
             question.completed.connect(loop.deleteLater)
             log.prompt.debug("Starting loop.exec() for {}".format(question))
             flags = QEventLoop.ProcessEventsFlag.ExcludeSocketNotifiers
-            loop.exec(flags)  # type: ignore[arg-type]
+            loop.exec(flags)
             log.prompt.debug("Ending loop.exec() for {}".format(question))
 
             log.prompt.debug("Restoring old question {}".format(old_question))

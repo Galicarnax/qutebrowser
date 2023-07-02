@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
@@ -54,6 +52,7 @@ check_python_version()
 
 import argparse  # FIXME:qt6 (lint): disable=wrong-import-order
 from qutebrowser.misc import earlyinit
+from qutebrowser.qt import machinery
 
 
 def get_argparser():
@@ -82,6 +81,11 @@ def get_argparser():
                              "qutebrowser instance running.")
     parser.add_argument('--backend', choices=['webkit', 'webengine'],
                         help="Which backend to use.")
+    parser.add_argument('--qt-wrapper', choices=machinery.WRAPPERS,
+                        help="Which Qt wrapper to use. This can also be set "
+                        "via the QUTE_QT_WRAPPER environment variable. "
+                        "If both are set, the command line argument takes "
+                        "precedence.")
     parser.add_argument('--desktop-file-name',
                         default="org.qutebrowser.qutebrowser",
                         help="Set the base name of the desktop entry for this "
@@ -95,12 +99,6 @@ def get_argparser():
 
     parser.add_argument('--json-args', help=argparse.SUPPRESS)
     parser.add_argument('--temp-basedir-restarted',
-                        help=argparse.SUPPRESS,
-                        action='store_true')
-
-    # WORKAROUND to be able to restart from older qutebrowser versions into this one.
-    # Should be removed at some point.
-    parser.add_argument('--enable-webengine-inspector',
                         help=argparse.SUPPRESS,
                         action='store_true')
 
@@ -190,7 +188,7 @@ def debug_flag_error(flag):
                    'no-scroll-filtering', 'log-requests', 'log-cookies',
                    'log-scroll-pos', 'log-sensitive-keys', 'stack', 'chromium',
                    'wait-renderer-process', 'avoid-chromium-init', 'werror',
-                   'test-notification-service']
+                   'test-notification-service', 'log-qt-events']
 
     if flag in valid_flags:
         return flag

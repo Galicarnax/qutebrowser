@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -34,7 +32,11 @@ class WebEngineRequest(interceptors.Request):
 
     """QtWebEngine-specific request interceptor functionality."""
 
-    _WHITELISTED_REQUEST_METHODS = {QByteArray(b'GET'), QByteArray(b'HEAD')}
+    _WHITELISTED_REQUEST_METHODS = {
+        # FIXME:mypy PyQt6-stubs issue?
+        QByteArray(b'GET'),  # type: ignore[call-overload,unused-ignore]
+        QByteArray(b'HEAD'),  # type: ignore[call-overload,unused-ignore]
+    }
 
     def __init__(self, *args, webengine_info, **kwargs):
         super().__init__(*args, **kwargs)

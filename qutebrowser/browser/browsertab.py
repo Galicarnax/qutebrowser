@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -20,12 +18,14 @@
 """Base class for a wrapper over QWebView/QWebEngineView."""
 
 import enum
+import pathlib
 import itertools
 import functools
 import dataclasses
 from typing import (cast, TYPE_CHECKING, Any, Callable, Iterable, List, Optional,
                     Sequence, Set, Type, Union, Tuple)
 
+from qutebrowser.qt import machinery
 from qutebrowser.qt.core import (pyqtSignal, pyqtSlot, QUrl, QObject, QSizeF, Qt,
                           QEvent, QPoint, QRect)
 from qutebrowser.qt.gui import QKeyEvent, QIcon, QPixmap
@@ -36,8 +36,9 @@ from qutebrowser.qt.network import QNetworkAccessManager
 if TYPE_CHECKING:
     from qutebrowser.qt.webkit import QWebHistory, QWebHistoryItem
     from qutebrowser.qt.webkitwidgets import QWebPage, QWebView
-    from qutebrowser.qt.webenginewidgets import (
-        QWebEngineHistory, QWebEngineHistoryItem, QWebEnginePage, QWebEngineView)
+    from qutebrowser.qt.webenginecore import (
+        QWebEngineHistory, QWebEngineHistoryItem, QWebEnginePage)
+    from qutebrowser.qt.webenginewidgets import QWebEngineView
 
 from qutebrowser.keyinput import modeman
 from qutebrowser.config import config, websettings
@@ -273,7 +274,7 @@ class AbstractPrinting(QObject):
         """
         raise NotImplementedError
 
-    def to_pdf(self, filename: str) -> None:
+    def to_pdf(self, path: pathlib.Path) -> None:
         """Print the tab to a PDF with the given filename."""
         raise NotImplementedError
 
@@ -1067,8 +1068,11 @@ class AbstractTab(QWidget):
     def _set_widget(self, widget: Union["QWebView", "QWebEngineView"]) -> None:
         # pylint: disable=protected-access
         self._widget = widget
+        # FIXME:v4 ignore needed for QtWebKit
         self.data.splitter = miscwidgets.InspectorSplitter(
-            win_id=self.win_id, main_webview=widget)
+            win_id=self.win_id,
+            main_webview=widget,  # type: ignore[arg-type,unused-ignore]
+        )
         self._layout.wrap(self, self.data.splitter)
         self.history._history = widget.history()
         self.history.private_api._history = widget.history()
@@ -1175,7 +1179,7 @@ class AbstractTab(QWidget):
     @pyqtSlot(bool)
     def _on_load_finished(self, ok: bool) -> None:
         assert self._widget is not None
-        if sip.isdeleted(self._widget):
+        if self.is_deleted():
             # https://github.com/qutebrowser/qutebrowser/issues/3498
             return
 
@@ -1310,18 +1314,22 @@ class AbstractTab(QWidget):
             pic = self._widget.grab()
         else:
             qtutils.ensure_valid(rect)
-            pic = self._widget.grab(rect)
+            # FIXME:v4 ignore needed for QtWebKit
+            pic = self._widget.grab(rect)  # type: ignore[arg-type,unused-ignore]
 
         if pic.isNull():
             return None
+
+        if machinery.IS_QT6:
+            # FIXME:v4 cast needed for QtWebKit
+            pic = cast(QPixmap, pic)
 
         return pic
 
     def __repr__(self) -> str:
         try:
             qurl = self.url()
-            as_unicode = QUrl.ComponentFormattingOption.EncodeUnicode
-            url = qurl.toDisplayString(as_unicode)  # type: ignore[arg-type]
+            url = qurl.toDisplayString(urlutils.FormatOption.ENCODE_UNICODE)
         except (AttributeError, RuntimeError) as exc:
             url = '<{}>'.format(exc.__class__.__name__)
         else:
@@ -1329,5 +1337,11 @@ class AbstractTab(QWidget):
         return utils.get_repr(self, tab_id=self.tab_id, url=url)
 
     def is_deleted(self) -> bool:
+        """Check if the tab has been deleted."""
         assert self._widget is not None
-        return sip.isdeleted(self._widget)
+        # FIXME:v4 cast needed for QtWebKit
+        if machinery.IS_QT6:
+            widget = cast(QWidget, self._widget)
+        else:
+            widget = self._widget
+        return sip.isdeleted(widget)

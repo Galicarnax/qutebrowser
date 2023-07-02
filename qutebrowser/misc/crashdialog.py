@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -633,7 +631,8 @@ class ReportErrorDialog(QDialog):
         hbox = QHBoxLayout()
         hbox.addStretch()
         btn = QPushButton("Close")
-        btn.clicked.connect(self.close)
+        # FIXME:mypy PyQt6-stubs issue
+        btn.clicked.connect(self.close)  # type: ignore[arg-type,unused-ignore]
         hbox.addWidget(btn)
         vbox.addLayout(hbox)
 

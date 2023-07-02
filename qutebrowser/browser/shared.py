@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -31,7 +29,7 @@ from qutebrowser.qt.core import QUrl, pyqtBoundSignal
 
 from qutebrowser.config import config
 from qutebrowser.utils import (usertypes, message, log, objreg, jinja, utils,
-                               qtutils, version)
+                               qtutils, version, urlutils)
 from qutebrowser.mainwindow import mainwindow
 from qutebrowser.misc import guiprocess, objects
 
@@ -229,9 +227,7 @@ def handle_certificate_error(
     # scheme might not match.
     is_resource = (
         first_party_url.isValid() and
-        not request_url.matches(
-            first_party_url,
-            QUrl.UrlFormattingOption.RemoveScheme))  # type: ignore[arg-type]
+        not request_url.matches(first_party_url, urlutils.FormatOption.REMOVE_SCHEME))
 
     if conf == 'ask' or conf == 'ask-block-thirdparty' and not is_resource:
         err_template = jinja.environment.from_string("""
@@ -261,7 +257,7 @@ def handle_certificate_error(
             error=error,
         )
         urlstr = request_url.toString(
-            QUrl.UrlFormattingOption.RemovePassword | QUrl.ComponentFormattingOption.FullyEncoded)  # type: ignore[arg-type]
+            urlutils.FormatOption.REMOVE_PASSWORD | urlutils.FormatOption.ENCODED)
         title = "Certificate error"
 
         try:

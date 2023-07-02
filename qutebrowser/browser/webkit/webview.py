@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -22,13 +20,13 @@
 
 """The main browser widgets."""
 
-from qutebrowser.qt.core import pyqtSignal, Qt, QUrl
+from qutebrowser.qt.core import pyqtSignal, Qt
 from qutebrowser.qt.webkit import QWebSettings
 from qutebrowser.qt.webkitwidgets import QWebView, QWebPage
 
 from qutebrowser.config import config, stylesheet
 from qutebrowser.keyinput import modeman
-from qutebrowser.utils import log, usertypes, utils, objreg, debug
+from qutebrowser.utils import log, usertypes, utils, objreg, debug, urlutils
 from qutebrowser.browser.webkit import webpage
 
 
@@ -85,8 +83,7 @@ class WebView(QWebView):
         stylesheet.set_register(self)
 
     def __repr__(self):
-        flags = QUrl.ComponentFormattingOption.EncodeUnicode
-        urlstr = self.url().toDisplayString(flags)  # type: ignore[arg-type]
+        urlstr = self.url().toDisplayString(urlutils.FormatOption.ENCODE_UNICODE)
         url = utils.elide(urlstr, 100)
         return utils.get_repr(self, tab_id=self._tab_id, url=url)
 

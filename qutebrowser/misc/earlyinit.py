@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The-Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -19,7 +17,7 @@
 
 """Things which need to be done really early (e.g. before importing Qt).
 
-At this point we can be sure we have all python 3.7 features available.
+At this point we can be sure we have all python 3.8 features available.
 """
 
 try:
@@ -35,6 +33,7 @@ import traceback
 import signal
 import importlib
 import datetime
+from typing import NoReturn
 try:
     import tkinter
 except ImportError:
@@ -42,6 +41,10 @@ except ImportError:
 
 # NOTE: No qutebrowser or PyQt import should be done here, as some early
 # initialization needs to take place before that!
+#
+# The machinery module is an exception, as it also is required to never import Qt
+# itself at import time.
+from qutebrowser.qt import machinery
 
 
 START_TIME = datetime.datetime.now()
@@ -136,11 +139,26 @@ def init_faulthandler(fileobj=sys.__stderr__):
         # pylint: enable=no-member,useless-suppression
 
 
-def check_pyqt():
-    """Check if PyQt core modules (QtCore/QtWidgets) are installed."""
-    from qutebrowser.qt import machinery
+def _fatal_qt_error(text: str) -> NoReturn:
+    """Show a fatal error about Qt being missing."""
+    if tkinter and '--no-err-windows' not in sys.argv:
+        root = tkinter.Tk()
+        root.withdraw()
+        tkinter.messagebox.showerror("qutebrowser: Fatal error!", text)
+    else:
+        print(text, file=sys.stderr)
+    if '--debug' in sys.argv or '--no-err-windows' in sys.argv:
+        print(file=sys.stderr)
+        traceback.print_exc()
+    sys.exit(1)
 
-    packages = [f'{machinery.PACKAGE}.QtCore', f'{machinery.PACKAGE}.QtWidgets']
+
+def check_qt_available(info: machinery.SelectionInfo) -> None:
+    """Check if Qt core modules (QtCore/QtWidgets) are installed."""
+    if info.wrapper is None:
+        _fatal_qt_error(f"No Qt wrapper was importable.\n\n{info}")
+
+    packages = [f'{info.wrapper}.QtCore', f'{info.wrapper}.QtWidgets']
     for name in packages:
         try:
             importlib.import_module(name)
@@ -150,16 +168,8 @@ def check_pyqt():
             text = text.replace('</b>', '')
             text = text.replace('<br />', '\n')
             text = text.replace('%ERROR%', str(e))
-            if tkinter and '--no-err-windows' not in sys.argv:
-                root = tkinter.Tk()
-                root.withdraw()
-                tkinter.messagebox.showerror("qutebrowser: Fatal error!", text)
-            else:
-                print(text, file=sys.stderr)
-            if '--debug' in sys.argv or '--no-err-windows' in sys.argv:
-                print(file=sys.stderr)
-                traceback.print_exc()
-            sys.exit(1)
+            text += '\n\n' + str(info)
+            _fatal_qt_error(text)
 
 
 def qt_version(qversion=None, qt_version_str=None):
@@ -240,14 +250,13 @@ def _check_modules(modules):
 
 def check_libraries():
     """Check if all needed Python libraries are installed."""
-    from qutebrowser.qt import machinery
     modules = {
         'jinja2': _missing_str("jinja2"),
         'yaml': _missing_str("PyYAML"),
     }
 
     for subpkg in ['QtQml', 'QtOpenGL', 'QtDBus']:
-        package = f'{machinery.PACKAGE}.{subpkg}'
+        package = f'{machinery.INFO.wrapper}.{subpkg}'
         modules[package] = _missing_str(package)
 
     if sys.version_info < (3, 9):
@@ -275,12 +284,9 @@ def configure_pyqt():
     pyqtRemoveInputHook()
 
     from qutebrowser.qt import sip
-    try:
-        sip.enableoverflowchecking(True)
-    except AttributeError:
+    if machinery.IS_QT5:
         # default in PyQt6
-        # FIXME:qt6 solve this in qutebrowser/qt/sip.py equivalent?
-        pass
+        sip.enableoverflowchecking(True)
 
 
 def init_log(args):
@@ -292,6 +298,7 @@ def init_log(args):
     from qutebrowser.utils import log
     log.init_log(args)
     log.init.debug("Log initialized.")
+    log.init.debug(str(machinery.INFO))
 
 
 def check_optimize_flag():
@@ -329,9 +336,11 @@ def early_init(args):
     # First we initialize the faulthandler as early as possible, so we
     # theoretically could catch segfaults occurring later during earlyinit.
     init_faulthandler()
+    # Then we configure the selected Qt wrapper
+    info = machinery.init(args)
     # Here we check if QtCore is available, and if not, print a message to the
     # console or via Tk.
-    check_pyqt()
+    check_qt_available(info)
     # Init logging as early as possible
     init_log(args)
     # Now we can be sure QtCore is available, so we can print dialogs on

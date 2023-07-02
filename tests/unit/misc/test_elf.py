@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2021 Florian Bruhin (The-Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -60,7 +58,7 @@ def test_result(webengine_versions, qapp, caplog):
     pytest.importorskip('qutebrowser.qt.webenginecore')
 
     versions = elf.parse_webenginecore()
-    if webengine_versions.webengine == utils.VersionNumber(6, 5):
+    if webengine_versions.webengine >= utils.VersionNumber(6, 5):
         assert versions is None
         pytest.xfail("ELF file structure not supported")
 

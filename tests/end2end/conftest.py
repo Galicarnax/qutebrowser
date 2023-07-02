@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -69,7 +67,7 @@ def _check_version(op_str, running_version, version_str, as_hex=False):
         '<': operator.lt,
     }
     op = operators[op_str]
-    major, minor, patch = [int(e) for e in version_str.split('.')]
+    major, minor, patch = (int(e) for e in version_str.split('.'))
     if as_hex:
         version = (major << 16) | (minor << 8) | patch
     else:

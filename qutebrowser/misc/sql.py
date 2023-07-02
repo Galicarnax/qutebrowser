@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Ryan Roden-Corrent (rcorre) <ryan@rcorre.net>
 #
 # This file is part of qutebrowser.
@@ -349,7 +347,7 @@ class Query:
             msg = f'Failed to {step} query "{query}": "{error.text()}"'
             raise_sqlite_error(msg, error)
 
-    def _validate_bound_values(self):
+    def _validate_bound_values(self) -> None:
         """Make sure all placeholders are bound."""
         qt_bound_values = self.query.boundValues()
         if machinery.IS_QT5:

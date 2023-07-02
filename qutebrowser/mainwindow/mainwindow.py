@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -23,7 +21,7 @@ import binascii
 import base64
 import itertools
 import functools
-from typing import List, MutableSequence, Optional, Tuple
+from typing import List, MutableSequence, Optional, Tuple, cast
 
 # Galicarnax: Wayland does not support QWindow::requestActivate()
 # This means that when opening URLs from an external app/script,
@@ -43,6 +41,7 @@ from qutebrowser.plugins import xkbswitch
 
 
 
+from qutebrowser.qt import machinery
 from qutebrowser.qt.core import (pyqtBoundSignal, pyqtSlot, QRect, QPoint, QTimer, Qt,
                           QCoreApplication, QEventLoop, QByteArray)
 from qutebrowser.qt.widgets import QWidget, QVBoxLayout, QSizePolicy
@@ -174,6 +173,18 @@ class MainWindow(QWidget):
             padding-left: {{ conf.hints.padding['left'] }}px;
             padding-right: {{ conf.hints.padding['right'] }}px;
             padding-bottom: {{ conf.hints.padding['bottom'] }}px;
+        }
+
+        QToolTip {
+            {% if conf.fonts.tooltip %}
+                font: {{ conf.fonts.tooltip }};
+            {% endif %}
+            {% if conf.colors.tooltip.bg %}
+                background-color: {{ conf.colors.tooltip.bg }};
+            {% endif %}
+            {% if conf.colors.tooltip.fg %}
+                color: {{ conf.colors.tooltip.fg }};
+            {% endif %}
         }
 
         QMenu {
@@ -606,11 +617,15 @@ class MainWindow(QWidget):
 
     def _set_decoration(self, hidden):
         """Set the visibility of the window decoration via Qt."""
-        window_flags = Qt.WindowType.Window
+        if machinery.IS_QT5:  # FIXME:v4 needed for Qt 5 typing
+            window_flags = cast(Qt.WindowFlags, Qt.WindowType.Window)
+        else:
+            window_flags = Qt.WindowType.Window
+
         refresh_window = self.isVisible()
         if hidden:
             modifiers = Qt.WindowType.CustomizeWindowHint | Qt.WindowType.NoDropShadowWindowHint
-            window_flags |= modifiers  # type: ignore[assignment]
+            window_flags |= modifiers
         self.setWindowFlags(window_flags)
 
         if utils.is_mac and hidden and not qtutils.version_check('6.3', compiled=False):

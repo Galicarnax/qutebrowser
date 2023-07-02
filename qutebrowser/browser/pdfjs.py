@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 # Copyright 2015 Daniel Schadt
 #
@@ -24,7 +22,7 @@ import os
 
 from qutebrowser.qt.core import QUrl, QUrlQuery
 
-from qutebrowser.utils import resources, javascript, jinja, standarddir, log
+from qutebrowser.utils import resources, javascript, jinja, standarddir, log, urlutils
 from qutebrowser.config import config
 
 
@@ -95,8 +93,7 @@ def _generate_pdfjs_script(filename):
     url_query.addQueryItem('filename', filename)
     url.setQuery(url_query)
 
-    js_url = javascript.to_js(
-        url.toString(QUrl.ComponentFormattingOption.FullyEncoded))  # type: ignore[arg-type]
+    js_url = javascript.to_js(url.toString(urlutils.FormatOption.ENCODED))
 
     return jinja.js_environment.from_string("""
         document.addEventListener("DOMContentLoaded", function() {
@@ -245,7 +242,7 @@ def get_main_url(filename: str, original_url: QUrl) -> QUrl:
     query = QUrlQuery()
     query.addQueryItem('filename', filename)  # read from our JS
     query.addQueryItem('file', '')  # to avoid pdfjs opening the default PDF
-    urlstr = original_url.toString(QUrl.ComponentFormattingOption.FullyEncoded)  # type: ignore[arg-type]
+    urlstr = original_url.toString(urlutils.FormatOption.ENCODED)
     query.addQueryItem('source', urlstr)
     url.setQuery(query)
     return url

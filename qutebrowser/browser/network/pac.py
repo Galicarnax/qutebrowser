@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -21,15 +19,16 @@
 
 import sys
 import functools
-from typing import Optional
+from typing import Optional, cast
 
+from qutebrowser.qt import machinery
 from qutebrowser.qt.core import QObject, pyqtSignal, pyqtSlot, QUrl
 from qutebrowser.qt.network import (QNetworkProxy, QNetworkRequest, QHostInfo,
                              QNetworkReply, QNetworkAccessManager,
                              QHostAddress)
 from qutebrowser.qt.qml import QJSEngine, QJSValue
 
-from qutebrowser.utils import log, utils, qtutils, resources
+from qutebrowser.utils import log, utils, qtutils, resources, urlutils
 
 
 class ParseProxyError(Exception):
@@ -214,13 +213,20 @@ class PACResolver:
         """
         qtutils.ensure_valid(query.url())
 
+        string_flags: urlutils.UrlFlagsType
         if from_file:
             string_flags = QUrl.ComponentFormattingOption.PrettyDecoded
         else:
-            string_flags = QUrl.UrlFormattingOption.RemoveUserInfo  # type: ignore[assignment]
+            string_flags = QUrl.UrlFormattingOption.RemoveUserInfo
             if query.url().scheme() == 'https':
-                string_flags |= QUrl.UrlFormattingOption.RemovePath  # type: ignore[assignment]
-                string_flags |= QUrl.UrlFormattingOption.RemoveQuery  # type: ignore[assignment]
+                https_opts = (
+                    QUrl.UrlFormattingOption.RemovePath |
+                    QUrl.UrlFormattingOption.RemoveQuery)
+
+                if machinery.IS_QT5:
+                    string_flags |= cast(QUrl.UrlFormattingOption, https_opts)
+                else:
+                    string_flags |= https_opts
 
         result = self._resolver.call([query.url().toString(string_flags),
                                       query.peerHostName()])

@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -39,7 +37,7 @@ from qutebrowser.browser.webengine import (webview, webengineelem, tabhistory,
                                            webengineinspector)
 
 from qutebrowser.utils import (usertypes, qtutils, log, javascript, utils,
-                               resources, message, jinja, debug, version)
+                               resources, message, jinja, debug, version, urlutils)
 from qutebrowser.qt import sip, machinery
 from qutebrowser.misc import objects, miscwidgets
 
@@ -96,14 +94,20 @@ class WebEnginePrinting(browsertab.AbstractPrinting):
         raise browsertab.WebTabError(
             "Print previews are unsupported with QtWebEngine")
 
-    def to_pdf(self, filename):
-        self._widget.page().printToPdf(filename)
+    def to_pdf(self, path):
+        self._widget.page().printToPdf(str(path))
 
     def to_printer(self, printer):
         if machinery.IS_QT5:
             self._widget.page().print(printer, self.printing_finished.emit)
         else:  # Qt 6
             self._widget.print(printer)
+
+
+if machinery.IS_QT5:
+    _FindFlagType = Union[QWebEnginePage.FindFlag, QWebEnginePage.FindFlags]
+else:
+    _FindFlagType = QWebEnginePage.FindFlag
 
 
 @dataclasses.dataclass
@@ -114,13 +118,11 @@ class _FindFlags:
 
     def to_qt(self):
         """Convert flags into Qt flags."""
-        # FIXME:mypy Those should be correct, reevaluate with PyQt6-stubs
-        flags = QWebEnginePage.FindFlag(0)
+        flags: _FindFlagType = QWebEnginePage.FindFlag(0)
         if self.case_sensitive:
-            flags |= (  # type: ignore[assignment]
-                QWebEnginePage.FindFlag.FindCaseSensitively)
+            flags |= QWebEnginePage.FindFlag.FindCaseSensitively
         if self.backward:
-            flags |= QWebEnginePage.FindFlag.FindBackward  # type: ignore[assignment]
+            flags |= QWebEnginePage.FindFlag.FindBackward
         return flags
 
     def __bool__(self):
@@ -1433,8 +1435,7 @@ class WebEngineTab(browsertab.AbstractTab):
         title = self.title()
         title_url = QUrl(url)
         title_url.setScheme('')
-        title_url_str = title_url.toDisplayString(
-            QUrl.UrlFormattingOption.RemoveScheme)  # type: ignore[arg-type]
+        title_url_str = title_url.toDisplayString(urlutils.FormatOption.REMOVE_SCHEME)
         if title == title_url_str.strip('/'):
             title = ""
 

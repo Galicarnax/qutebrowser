@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -718,9 +716,10 @@ class CommandDispatcher:
         assert what in ['url', 'pretty-url'], what
 
         if what == 'pretty-url':
-            flags = QUrl.UrlFormattingOption.RemovePassword | QUrl.ComponentFormattingOption.DecodeReserved
+            flags = urlutils.FormatOption.DECODE_RESERVED
         else:
-            flags = QUrl.UrlFormattingOption.RemovePassword | QUrl.ComponentFormattingOption.FullyEncoded
+            flags = urlutils.FormatOption.ENCODED
+        flags |= urlutils.FormatOption.REMOVE_PASSWORD
 
         url = QUrl(self._current_url())
         url_query = QUrlQuery()
@@ -732,7 +731,7 @@ class CommandDispatcher:
             if key in config.val.url.yank_ignored_parameters:
                 url_query.removeQueryItem(key)
         url.setQuery(url_query)
-        return url.toString(flags)  # type: ignore[arg-type]
+        return url.toString(flags)
 
     @cmdutils.register(instance='command-dispatcher', scope='window')
     @cmdutils.argument('what', choices=['selection', 'url', 'pretty-url',

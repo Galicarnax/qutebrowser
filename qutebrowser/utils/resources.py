@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -27,7 +25,7 @@ import pathlib
 from typing import Iterator, Iterable, Union
 
 
-# We cannot use the stdlib version on 3.7-3.8 because we need the files() API.
+# We cannot use the stdlib version on 3.8 because we need the files() API.
 if sys.version_info >= (3, 11):  # pragma: no cover
     # https://github.com/python/cpython/issues/90276
     import importlib.resources as importlib_resources

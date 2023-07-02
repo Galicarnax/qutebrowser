@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -33,7 +31,8 @@ import datetime
 import getpass
 import functools
 import dataclasses
-from typing import (Mapping, Optional, Sequence, Tuple, ClassVar, Dict, cast,
+import importlib.metadata
+from typing import (Mapping, Optional, Sequence, Tuple, ClassVar, Dict, cast, Any,
                     TYPE_CHECKING)
 
 from qutebrowser.qt import machinery
@@ -520,19 +519,9 @@ def _get_pyqt_webengine_qt_version() -> Optional[str]:
     PyQtWebEngine 5.15.4 renamed it to PyQtWebEngine-Qt5...:
     https://www.riverbankcomputing.com/pipermail/pyqt/2021-March/043699.html
 
-    Here, we try to use importlib.metadata or its backport (optional dependency) to
-    figure out that version number. If PyQtWebEngine is installed via pip, this will
-    give us an accurate answer.
+    Here, we try to use importlib.metadata to figure out that version number.
+    If PyQtWebEngine is installed via pip, this will give us an accurate answer.
     """
-    try:
-        import importlib.metadata as importlib_metadata  # type: ignore[import]
-    except ImportError:
-        try:
-            import importlib_metadata
-        except ImportError:
-            log.misc.debug("Neither importlib.metadata nor backport available")
-            return None
-
     names = (
         ['PyQt6-WebEngine-Qt6']
         if machinery.IS_QT6 else
@@ -541,8 +530,8 @@ def _get_pyqt_webengine_qt_version() -> Optional[str]:
 
     for name in names:
         try:
-            return importlib_metadata.version(name)
-        except importlib_metadata.PackageNotFoundError:
+            return importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
             log.misc.debug(f"{name} not found")
 
     return None
@@ -882,6 +871,8 @@ def version_info() -> str:
                         platform.python_version()),
         'PyQt: {}'.format(PYQT_VERSION_STR),
         '',
+        str(machinery.INFO),
+        '',
     ]
 
     lines += _module_versions()
@@ -1044,9 +1035,8 @@ def opengl_info() -> Optional[OpenGLInfo]:  # pragma: no cover
                 vf = ctx.versionFunctions(vp)
             else:
                 # Qt 6
-                # FIXME:qt6 (lint)
                 from qutebrowser.qt.opengl import QOpenGLVersionFunctionsFactory
-                vf = QOpenGLVersionFunctionsFactory.get(vp, ctx)
+                vf: Any = QOpenGLVersionFunctionsFactory.get(vp, ctx)
         except ImportError as e:
             log.init.debug("Importing version functions failed: {}".format(e))
             return None
@@ -1055,6 +1045,7 @@ def opengl_info() -> Optional[OpenGLInfo]:  # pragma: no cover
             log.init.debug("Getting version functions failed!")
             return None
 
+        # FIXME:mypy PyQt6-stubs issue?
         vendor = vf.glGetString(vf.GL_VENDOR)
         version = vf.glGetString(vf.GL_VERSION)
 

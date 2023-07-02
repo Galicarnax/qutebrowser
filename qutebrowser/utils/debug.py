@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -33,7 +31,7 @@ from qutebrowser.qt.core import Qt, QEvent, QMetaMethod, QObject, pyqtBoundSigna
 
 from qutebrowser.utils import log, utils, qtutils, objreg
 from qutebrowser.misc import objects
-from qutebrowser.qt import sip
+from qutebrowser.qt import sip, machinery
 
 
 def log_events(klass: Type[QObject]) -> Type[QObject]:
@@ -99,7 +97,10 @@ def log_signals(obj: QObject) -> QObject:
     return obj
 
 
-_EnumValueType = Union[sip.simplewrapper, int]
+if machinery.IS_QT6:
+    _EnumValueType = Union[enum.Enum, int]
+else:
+    _EnumValueType = Union[sip.simplewrapper, int]
 
 
 def _qenum_key_python(
@@ -124,14 +125,14 @@ def _qenum_key_python(
 
 
 def _qenum_key_qt(
-    base: Type[_EnumValueType],
+    base: Type[sip.simplewrapper],
     value: _EnumValueType,
     klass: Type[_EnumValueType],
 ) -> Optional[str]:
     # On PyQt5, or PyQt6 with int passed: Try to ask Qt's introspection.
     # However, not every Qt enum value has a staticMetaObject
     try:
-        meta_obj = base.staticMetaObject  # type: ignore[union-attr]
+        meta_obj = base.staticMetaObject  # type: ignore[attr-defined]
         idx = meta_obj.indexOfEnumerator(klass.__name__)
         meta_enum = meta_obj.enumerator(idx)
         key = meta_enum.valueToKey(int(value))  # type: ignore[arg-type]
@@ -149,7 +150,7 @@ def _qenum_key_qt(
 
 
 def qenum_key(
-    base: Type[_EnumValueType],
+    base: Type[sip.simplewrapper],
     value: _EnumValueType,
     klass: Type[_EnumValueType] = None,
 ) -> str:
@@ -183,7 +184,7 @@ def qenum_key(
     return '0x{:04x}'.format(int(value))  # type: ignore[arg-type]
 
 
-def qflags_key(base: Type[_EnumValueType],
+def qflags_key(base: Type[sip.simplewrapper],
                value: _EnumValueType,
                klass: Type[_EnumValueType] = None) -> str:
     """Convert a Qt QFlags value to its keys as string.
@@ -216,15 +217,15 @@ def qflags_key(base: Type[_EnumValueType],
     bits = []
     names = []
     mask = 0x01
-    value = qtutils.extract_enum_val(value)
-    while mask <= value:
-        if value & mask:
+    intval = qtutils.extract_enum_val(value)
+    while mask <= intval:
+        if intval & mask:
             bits.append(mask)
         mask <<= 1
     for bit in bits:
         # We have to re-convert to an enum type here or we'll sometimes get an
         # empty string back.
-        enum_value = klass(bit)  # type: ignore[call-arg]
+        enum_value = klass(bit)  # type: ignore[call-arg,unused-ignore]
         names.append(qenum_key(base, enum_value, klass))
     return '|'.join(names)
 

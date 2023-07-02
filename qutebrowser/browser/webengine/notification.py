@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2020 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -61,13 +59,12 @@ from qutebrowser.qt.widgets import QSystemTrayIcon
 if TYPE_CHECKING:
     # putting these behind TYPE_CHECKING also means this module is importable
     # on installs that don't have these
-    from qutebrowser.qt.webenginecore import QWebEngineNotification
-    from qutebrowser.qt.webenginewidgets import QWebEngineProfile
+    from qutebrowser.qt.webenginecore import QWebEngineNotification, QWebEngineProfile
 
 from qutebrowser.config import config
 from qutebrowser.misc import objects
 from qutebrowser.utils import (
-    qtutils, log, utils, debug, message, objreg, resources,
+    qtutils, log, utils, debug, message, objreg, resources, urlutils
 )
 from qutebrowser.qt import sip
 
@@ -636,8 +633,8 @@ class HerbeNotificationAdapter(AbstractNotificationAdapter):
     def _on_error(self, error: QProcess.ProcessError) -> None:
         if error == QProcess.ProcessError.Crashed:
             return
-        name = debug.qenum_key(QProcess.ProcessError, error)
-        raise Error(f'herbe process error: {name}')
+        name = debug.qenum_key(QProcess, error)
+        self.error.emit(f'herbe process error: {name}')
 
     @pyqtSlot(int)
     def on_web_closed(self, notification_id: int) -> None:
@@ -692,11 +689,12 @@ def _as_uint32(x: int) -> QVariant:
     variant = QVariant(x)
 
     if machinery.IS_QT5:
-        target_type = QVariant.Type.UInt
+        target = QVariant.Type.UInt
     else:  # Qt 6
-        target_type = QMetaType(QMetaType.Type.UInt.value)
+        # FIXME:mypy PyQt6-stubs issue
+        target = QMetaType(QMetaType.Type.UInt.value)  # type: ignore[call-overload]
 
-    successful = variant.convert(target_type)
+    successful = variant.convert(target)
     assert successful
     return variant
 
@@ -813,7 +811,7 @@ class DBusNotificationAdapter(AbstractNotificationAdapter):
             # https://github.com/sboli/twmn/pull/96
             return _ServerQuirks(spec_version="0")
         elif (name, vendor) == ("tiramisu", "Sweets"):
-            if utils.VersionNumber.parse(ver) < utils.VersionNumber(2, 0):
+            if utils.VersionNumber.parse(ver) < utils.VersionNumber(2):
                 # https://github.com/Sweets/tiramisu/issues/20
                 return _ServerQuirks(skip_capabilities=True)
         elif (name, vendor) == ("lxqt-notificationd", "lxqt.org"):
@@ -918,8 +916,8 @@ class DBusNotificationAdapter(AbstractNotificationAdapter):
 
         typ = msg.type()
         if typ != expected_type:
-            type_str = debug.qenum_key(QDBusMessage.MessageType, typ)
-            expected_type_str = debug.qenum_key(QDBusMessage.MessageType, expected_type)
+            type_str = debug.qenum_key(QDBusMessage, typ)
+            expected_type_str = debug.qenum_key(QDBusMessage, expected_type)
             raise Error(
                 f"Got a message of type {type_str} but expected {expected_type_str}"
                 f"(args: {msg.arguments()})")
@@ -1111,7 +1109,8 @@ class DBusNotificationAdapter(AbstractNotificationAdapter):
             return None
 
         bits = qimage.constBits().asstring(size)
-        image_data.add(QByteArray(bits))
+        # FIXME:mypy PyQt6-stubs issue
+        image_data.add(QByteArray(bits))  # type: ignore[call-overload,unused-ignore]
 
         image_data.endStructure()
         return image_data
@@ -1178,9 +1177,7 @@ class DBusNotificationAdapter(AbstractNotificationAdapter):
         if self._capabilities.kde_origin_name or not is_useful_origin:
             prefix = None
         elif self._capabilities.body_markup and self._capabilities.body_hyperlinks:
-            href = html.escape(
-                origin_url.toString(QUrl.ComponentFormattingOption.FullyEncoded)  # type: ignore[arg-type]
-            )
+            href = html.escape(origin_url.toString(urlutils.FormatOption.ENCODED))
             text = html.escape(urlstr, quote=False)
             prefix = f'<a href="{href}">{text}</a>'
         elif self._capabilities.body_markup:

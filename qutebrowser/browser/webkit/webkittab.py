@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -92,12 +90,12 @@ class WebKitPrinting(browsertab.AbstractPrinting):
     def check_preview_support(self):
         pass
 
-    def to_pdf(self, filename):
+    def to_pdf(self, path):
         printer = QPrinter()
-        printer.setOutputFileName(filename)
+        printer.setOutputFileName(str(path))
         self._widget.print(printer)
         # Can't find out whether there was an error...
-        self.pdf_printing_finished.emit(filename, True)
+        self.pdf_printing_finished.emit(str(path), True)
 
     def to_printer(self, printer):
         self._widget.print(printer)

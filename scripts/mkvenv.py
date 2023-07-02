@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2020-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
@@ -513,6 +511,9 @@ def install_pyqt(venv_dir, args):
         install_pyqt_link(venv_dir, args.pyqt_version)
     elif args.pyqt_type == 'wheels':
         wheels_dir = pathlib.Path(args.pyqt_wheels_dir)
+        if not wheels_dir.is_dir():
+            raise Error(
+                f"Wheels directory {wheels_dir} doesn't exist or is not a directory")
         install_pyqt_wheels(venv_dir, wheels_dir)
     elif args.pyqt_type == 'skip':
         pass
@@ -525,10 +526,8 @@ def run(args) -> None:
     venv_dir = pathlib.Path(args.venv_dir)
     utils.change_cwd()
 
-    if (args.pyqt_version != 'auto' and
-            args.pyqt_type not in ['binary', 'source', 'link']):
-        raise Error('The --pyqt-version option is only available when installing PyQt '
-                    'from binary, source, or linking it')
+    if args.pyqt_version != 'auto' and args.pyqt_type == 'skip':
+        raise Error('Cannot use --pyqt-version with --pyqt-type skip')
     if args.pyqt_type == 'link' and args.pyqt_version not in ['auto', '5', '6']:
         raise Error('Invalid --pyqt-version {args.pyqt_version}, only 5 or 6 '
                     'permitted with --pyqt-type=link')

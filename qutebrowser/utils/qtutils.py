@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -34,7 +32,7 @@ import pathlib
 import operator
 import contextlib
 from typing import (Any, AnyStr, TYPE_CHECKING, BinaryIO, IO, Iterator,
-                    Optional, Union, Tuple, cast)
+                    Optional, Union, Tuple, Protocol, cast)
 
 from qutebrowser.qt import machinery, sip
 from qutebrowser.qt.core import (qVersion, QEventLoop, QDataStream, QByteArray,
@@ -47,7 +45,7 @@ except ImportError:  # pragma: no cover
     qWebKitVersion = None  # type: ignore[assignment]  # noqa: N816
 if TYPE_CHECKING:
     from qutebrowser.qt.webkit import QWebHistory
-    from qutebrowser.qt.webenginewidgets import QWebEngineHistory
+    from qutebrowser.qt.webenginecore import QWebEngineHistory
 
 from qutebrowser.misc import objects
 from qutebrowser.utils import usertypes, utils
@@ -159,7 +157,7 @@ def check_overflow(arg: int, ctype: str, fatal: bool = True) -> int:
         return arg
 
 
-class Validatable(utils.Protocol):
+class Validatable(Protocol):
 
     """An object with an isValid() method (e.g. QUrl)."""
 
@@ -459,7 +457,8 @@ class QtValueError(ValueError):
 if machinery.IS_QT6:
     _ProcessEventFlagType = QEventLoop.ProcessEventsFlag
 else:
-    _ProcessEventFlagType = QEventLoop.ProcessEventsFlags
+    _ProcessEventFlagType = Union[
+        QEventLoop.ProcessEventsFlag, QEventLoop.ProcessEventsFlags]
 
 
 class EventLoop(QEventLoop):
@@ -474,15 +473,15 @@ class EventLoop(QEventLoop):
         self._executing = False
 
     def exec(
-            self,
-            flags: _ProcessEventFlagType = (
-                QEventLoop.ProcessEventsFlag.AllEvents  # type: ignore[assignment]
-            ),
+        self,
+        flags: _ProcessEventFlagType = QEventLoop.ProcessEventsFlag.AllEvents,
     ) -> int:
         """Override exec_ to raise an exception when re-running."""
         if self._executing:
             raise AssertionError("Eventloop is already running!")
         self._executing = True
+        if machinery.IS_QT5:
+            flags = cast(QEventLoop.ProcessEventsFlags, flags)
         status = super().exec(flags)
         self._executing = False
         return status

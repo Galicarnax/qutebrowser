@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -114,7 +112,7 @@ class Environment(jinja2.Environment):
         url = QUrl('qute://resource')
         url.setPath('/' + path)
         urlutils.ensure_valid(url)
-        urlstr = url.toString(QUrl.ComponentFormattingOption.FullyEncoded)  # type: ignore[arg-type]
+        urlstr = url.toString(urlutils.FormatOption.ENCODED)
         return urlstr
 
     def _data_url(self, path: str) -> str:
@@ -142,7 +140,7 @@ js_environment = jinja2.Environment(loader=Loader('javascript'))
 
 
 @debugcachestats.register()
-@functools.lru_cache()
+@functools.lru_cache
 def template_config_variables(template: str) -> FrozenSet[str]:
     """Return the config variables used in the template."""
     unvisted_nodes: List[jinja2.nodes.Node] = [environment.parse(template)]

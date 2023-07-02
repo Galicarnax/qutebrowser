@@ -327,6 +327,23 @@ qt.chromium.sandboxing:
     - https://chromium.googlesource.com/chromium/src/\+/HEAD/docs/design/sandbox_faq.md[FAQ (Windows-centric)]
   # yamllint enable rule:line-length
 
+qt.chromium.experimental_web_platform_features:
+  type:
+    name: String
+    valid_values:
+      - always: Enable experimental web platform features.
+      - auto: Enable experimental web platform features when using Qt 5.
+      - never: Disable experimental web platform features.
+  default: auto
+  backend: QtWebEngine
+  restart: true
+  desc: >-
+    Enables Web Platform features that are in development.
+
+    This passes the `--enable-experimental-web-platform-features` flag to
+    Chromium. By default, this is enabled with Qt 5 to maximize compatibility
+    despite an aging Chromium base.
+
 qt.highdpi:
   type: Bool
   default: false
@@ -610,14 +627,9 @@ content.site_specific_quirks.skip:
       - misc-krunker
       - misc-mathml-darkmode
     none_ok: true
-  default: ["js-string-replaceall"]
+  default: []
   desc: >-
     Disable a list of named quirks.
-
-    The js-string-replaceall quirk is needed for Nextcloud Calendar < 2.2.0 with
-    QtWebEngine < 5.15.3. However, the workaround is not fully compliant to the
-    ECMAScript spec and might cause issues on other websites, so it's disabled by
-    default.
 
 # emacs: '
 
@@ -2726,6 +2738,26 @@ colors.contextmenu.bg:
 colors.contextmenu.fg:
   renamed: colors.contextmenu.menu.fg
 
+colors.tooltip.bg:
+  type:
+    name: QssColor
+    none_ok: true
+  default: null
+  desc: >-
+    Background color of tooltips.
+
+    If set to null, the Qt default is used.
+
+colors.tooltip.fg:
+  type:
+    name: QssColor
+    none_ok: true
+  default: null
+  desc: >-
+    Foreground color of tooltips.
+
+    If set to null, the Qt default is used.
+
 colors.contextmenu.menu.bg:
   type:
     name: QssColor
@@ -3391,6 +3423,16 @@ fonts.completion.category:
   default: bold default_size default_family
   type: Font
   desc: Font used in the completion categories.
+
+fonts.tooltip:
+  type:
+    name: Font
+    none_ok: true
+  default: null
+  desc: >-
+    Font used for tooltips.
+
+    If set to null, the Qt default is used.
 
 fonts.contextmenu:
   type:

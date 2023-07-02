@@ -1,4 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 # Copyright 2017-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
@@ -1190,7 +1189,7 @@ class TestConfigPy:
         assert len(excinfo.value.errors) == 1
         error = excinfo.value.errors[0]
 
-        if sys.version_info >= (3, 12):
+        if sys.version_info >= (3, 11, 4):
             assert isinstance(error.exception, SyntaxError)
             assert error.text == "Unhandled exception"
             assert error.traceback is not None  # tested in more detail by test below

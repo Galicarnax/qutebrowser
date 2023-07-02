@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -25,6 +23,7 @@ import argparse
 import pathlib
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
+from qutebrowser.qt import machinery
 from qutebrowser.qt.core import QLocale
 
 from qutebrowser.config import config
@@ -331,7 +330,13 @@ _WEBENGINE_SETTINGS: Dict[str, Dict[Any, Optional[str]]] = {
         'enable-all': None,
         'disable-seccomp-bpf': '--disable-seccomp-filter-sandbox',
         'disable-all': '--no-sandbox',
-    }
+    },
+    'qt.chromium.experimental_web_platform_features': {
+        'always': '--enable-experimental-web-platform-features',
+        'never': None,
+        'auto':
+            '--enable-experimental-web-platform-features' if machinery.IS_QT5 else None,
+    },
 }
 
 

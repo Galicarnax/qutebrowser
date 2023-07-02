@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -23,6 +21,7 @@ import functools
 import dataclasses
 from typing import Mapping, Callable, MutableMapping, Union, Set, cast
 
+from qutebrowser.qt import machinery
 from qutebrowser.qt.core import pyqtSlot, pyqtSignal, Qt, QObject, QEvent
 from qutebrowser.qt.gui import QKeyEvent, QKeySequence
 
@@ -291,10 +290,18 @@ class ModeManager(QObject):
                             "{}".format(curmode, utils.qualname(parser)))
         match = parser.handle(event, dry_run=dry_run)
 
-        has_modifier = event.modifiers() not in [
-            Qt.KeyboardModifier.NoModifier,
-            Qt.KeyboardModifier.ShiftModifier,
-        ]  # type: ignore[comparison-overlap]
+        if machinery.IS_QT5:  # FIXME:v4 needed for Qt 5 typing
+            ignored_modifiers = [
+                cast(Qt.KeyboardModifiers, Qt.KeyboardModifier.NoModifier),
+                cast(Qt.KeyboardModifiers, Qt.KeyboardModifier.ShiftModifier),
+            ]
+        else:
+            ignored_modifiers = [
+                Qt.KeyboardModifier.NoModifier,
+                Qt.KeyboardModifier.ShiftModifier,
+            ]
+        has_modifier = event.modifiers() not in ignored_modifiers
+
         is_non_alnum = has_modifier or not event.text().strip()
 
         forward_unbound_keys = config.cache['input.forward_unbound_keys']
@@ -467,7 +474,11 @@ class ModeManager(QObject):
             QEvent.Type.ShortcutOverride:
                 functools.partial(self._handle_keypress, dry_run=True),
         }
-        handler = handlers[event.type()]
+        ev_type = event.type()
+        if machinery.IS_QT6:
+            ev_type = cast(QEvent.Type, ev_type)
+
+        handler = handlers[ev_type]
         return handler(cast(QKeyEvent, event))
 
     @cmdutils.register(instance='mode-manager', scope='window')

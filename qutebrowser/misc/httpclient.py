@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -80,7 +78,9 @@ class HTTPClient(QObject):
         request = HTTPRequest(url)
         request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader,
                           'application/x-www-form-urlencoded;charset=utf-8')
-        reply = self._nam.post(request, encoded_data)
+        # FIXME:mypy PyQt6-stubs issue
+        reply = self._nam.post(  # type: ignore[call-overload,unused-ignore]
+            request, encoded_data)
         self._handle_reply(reply)
 
     def get(self, url):

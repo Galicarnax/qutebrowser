@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # Based on the Eric5 helpviewer,
@@ -128,7 +126,7 @@ class ErrorNetworkReply(QNetworkReply):
 
     def readData(self, _maxlen):
         """No data available."""
-        return bytes()
+        return b''
 
     def isFinished(self):
         return True
@@ -150,4 +148,4 @@ class RedirectNetworkReply(QNetworkReply):
         """Called when there's e.g. a redirection limit."""
 
     def readData(self, _maxlen):
-        return bytes()
+        return b''
