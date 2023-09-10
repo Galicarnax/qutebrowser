@@ -1,19 +1,6 @@
-# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# SPDX-FileCopyrightText: Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
-# This file is part of qutebrowser.
-#
-# qutebrowser is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# qutebrowser is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """The qutebrowser test suite conftest file."""
 
@@ -46,19 +33,24 @@ _qute_scheme_handler = None
 
 
 # Set hypothesis settings
+suppressed_health_checks = [
+    hypothesis.HealthCheck.function_scoped_fixture,
+    # https://github.com/HypothesisWorks/hypothesis/issues/3733
+    hypothesis.HealthCheck.differing_executors,
+]
 hypothesis.settings.register_profile(
     'default', hypothesis.settings(
         deadline=600,
-        suppress_health_check=[hypothesis.HealthCheck.function_scoped_fixture],
+        suppress_health_check=suppressed_health_checks,
     )
 )
 hypothesis.settings.register_profile(
     'ci', hypothesis.settings(
         deadline=None,
-        suppress_health_check=[
-            hypothesis.HealthCheck.function_scoped_fixture,
-            hypothesis.HealthCheck.too_slow,
-        ]
+        suppress_health_check=(
+            suppressed_health_checks +
+            [hypothesis.HealthCheck.too_slow]
+        )
     )
 )
 hypothesis.settings.load_profile('ci' if testutils.ON_CI else 'default')

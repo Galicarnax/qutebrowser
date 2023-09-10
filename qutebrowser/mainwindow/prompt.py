@@ -1,19 +1,6 @@
-# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# SPDX-FileCopyrightText: Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
-# This file is part of qutebrowser.
-#
-# qutebrowser is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# qutebrowser is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """Showing prompts above the statusbar."""
 
@@ -303,6 +290,7 @@ class PromptContainer(QWidget):
         item = self._layout.takeAt(0)
         if item is not None:
             widget = item.widget()
+            assert widget is not None
             log.prompt.debug("Deleting old prompt {}".format(widget))
             widget.hide()
             widget.deleteLater()
@@ -366,6 +354,7 @@ class PromptContainer(QWidget):
         item = self._layout.takeAt(0)
         if item is not None:
             widget = item.widget()
+            assert widget is not None
             log.prompt.debug("Deleting prompt {}".format(widget))
             widget.hide()
             widget.deleteLater()
@@ -780,6 +769,7 @@ class FilenamePrompt(_BasePrompt):
         # This duplicates some completion code, but I don't see a nicer way...
         assert which in ['prev', 'next'], which
         selmodel = self._file_view.selectionModel()
+        assert selmodel is not None
 
         parent = self._file_view.rootIndex()
         first_index = self._file_model.index(0, 0, parent)
