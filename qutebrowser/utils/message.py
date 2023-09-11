@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -27,7 +25,7 @@ import dataclasses
 import traceback
 from typing import Any, Callable, Iterable, List, Union, Optional
 
-from PyQt5.QtCore import pyqtSignal, pyqtBoundSignal, QObject
+from qutebrowser.qt.core import pyqtSignal, pyqtBoundSignal, QObject
 
 from qutebrowser.utils import usertypes, log
 
@@ -241,7 +239,7 @@ class GlobalMessageBridge(QObject):
                       arg 1: Whether to block (True) or ask async (False).
 
                       IMPORTANT: Slots need to be connected to this signal via
-                                 a Qt.DirectConnection!
+                                 a Qt.ConnectionType.DirectConnection!
         mode_left: Emitted when a keymode was left in any window.
     """
 

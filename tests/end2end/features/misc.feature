@@ -1,5 +1,3 @@
-# vim: ft=cucumber fileencoding=utf-8 sts=4 sw=4 et:
-
 Feature: Various utility commands.
 
     ## :set-cmd-text
@@ -186,7 +184,7 @@ Feature: Various utility commands.
     @no_xvfb @posix @qtwebengine_skip
     Scenario: Inspector smoke test
         When I run :devtools
-        And I wait for "Focus object changed: <PyQt5.QtWebKitWidgets.QWebView object at *>" in the log
+        And I wait for "Focus object changed: <Py*.QtWebKitWidgets.QWebView object at *>" in the log
         And I run :devtools
         And I wait for "Focus object changed: *" in the log
         Then no crash should happen
@@ -195,7 +193,7 @@ Feature: Various utility commands.
     @no_xvfb @posix @qtwebengine_skip
     Scenario: Inspector smoke test 2
         When I run :devtools
-        And I wait for "Focus object changed: <PyQt5.QtWebKitWidgets.QWebView object at *>" in the log
+        And I wait for "Focus object changed: <Py*.QtWebKitWidgets.QWebView object at *>" in the log
         And I run :devtools
         And I wait for "Focus object changed: *" in the log
         Then no crash should happen
@@ -305,13 +303,17 @@ Feature: Various utility commands.
         And I run :debug-pyeval QApplication.instance().activeModalWidget().close()
         Then no crash should happen
 
-    # FIXME:qtwebengine use a finer skipping here
-    @qtwebengine_skip: printing to pdf is not implemented with older Qt versions
     Scenario: print --pdf
         When I open data/hello.txt
         And I run :print --pdf (tmpdir)/hello.pdf
-        And I wait for "Print to file: *" in the log or skip the test
+        And I wait for "Printed to *" in the log
         Then the PDF hello.pdf should exist in the tmpdir
+
+    Scenario: print --pdf with subdirectory
+        When I open data/hello.txt
+        And I run :print --pdf (tmpdir)/subdir/subdir2/hello.pdf
+        And I wait for "Print to file: *" in the log or skip the test
+        Then no crash should happen
 
     ## https://github.com/qutebrowser/qutebrowser/issues/504
 
@@ -364,7 +366,7 @@ Feature: Various utility commands.
 
     # This still doesn't set window.navigator.language
     # See https://bugreports.qt.io/browse/QTBUG-61949
-    @qtwebkit_skip @js_headers
+    @qtwebkit_skip
     Scenario: Accept-Language header (JS)
         When I set content.headers.accept_language to it,fr
         And I run :jseval console.log(window.navigator.languages)
@@ -376,7 +378,6 @@ Feature: Various utility commands.
         And I run :jseval console.log(window.navigator.userAgent)
         Then the header User-Agent should be set to toaster
 
-    @js_headers
     Scenario: User-agent header (JS)
         When I set content.headers.user_agent to toaster
         And I open about:blank

@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -22,8 +20,8 @@
 import functools
 from typing import Callable, MutableSequence, Tuple, Union
 
-from PyQt5.QtCore import pyqtSlot, QSize, Qt
-from PyQt5.QtWidgets import QListView, QSizePolicy, QMenu, QStyleFactory
+from qutebrowser.qt.core import pyqtSlot, QSize, Qt
+from qutebrowser.qt.widgets import QListView, QSizePolicy, QMenu, QStyleFactory
 
 from qutebrowser.browser import downloads
 from qutebrowser.config import stylesheet
@@ -62,11 +60,11 @@ class DownloadView(QListView):
         if not utils.is_mac:
             self.setStyle(QStyleFactory.create('Fusion'))
         stylesheet.set_register(self)
-        self.setResizeMode(QListView.Adjust)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
-        self.setFocusPolicy(Qt.NoFocus)
-        self.setFlow(QListView.LeftToRight)
+        self.setResizeMode(QListView.ResizeMode.Adjust)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setFlow(QListView.Flow.LeftToRight)
         self.setSpacing(1)
         self._menu = None
         model.rowsInserted.connect(self._update_geometry)
@@ -74,7 +72,7 @@ class DownloadView(QListView):
         model.dataChanged.connect(self._update_geometry)
         self.setModel(model)
         self.setWrapping(True)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.clicked.connect(self.on_clicked)
 

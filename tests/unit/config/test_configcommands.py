@@ -1,4 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 
 # This file is part of qutebrowser.
@@ -23,7 +22,7 @@ import functools
 import unittest.mock
 
 import pytest
-from PyQt5.QtCore import QUrl
+from qutebrowser.qt.core import QUrl
 
 from qutebrowser.config import configcommands
 from qutebrowser.api import cmdutils
@@ -212,12 +211,17 @@ class TestSet:
             commands.set(win_id=0, option='foo?')
 
 
-def test_diff(commands, tabbed_browser_stubs):
+@pytest.mark.parametrize("include_hidden, url", [
+    (True, "qute://configdiff?include_hidden=true"),
+    (False, "qute://configdiff"),
+])
+def test_diff(commands, tabbed_browser_stubs, include_hidden, url):
     """Run ':config-diff'.
 
-    Should open qute://configdiff."""
-    commands.config_diff(win_id=0)
-    assert tabbed_browser_stubs[0].loaded_url == QUrl('qute://configdiff')
+    Should open qute://configdiff.
+    """
+    commands.config_diff(win_id=0, include_hidden=include_hidden)
+    assert tabbed_browser_stubs[0].loaded_url == QUrl(url)
 
 
 class TestCycle:
@@ -517,12 +521,11 @@ class TestUnsetAndClear:
         assert yaml_value(name) == (usertypes.UNSET if save else 'never')
 
 
+@pytest.mark.usefixtures('config_tmpdir', 'data_tmpdir',
+                         'config_stub', 'key_config_stub')
 class TestSource:
 
     """Test :config-source."""
-
-    pytestmark = pytest.mark.usefixtures('config_tmpdir', 'data_tmpdir',
-                                         'config_stub', 'key_config_stub')
 
     @pytest.mark.parametrize('location', ['default', 'absolute', 'relative'])
     @pytest.mark.parametrize('clear', [True, False])
@@ -601,13 +604,12 @@ class TestSource:
         assert str(excinfo.value) == expected
 
 
+@pytest.mark.usefixtures('config_tmpdir', 'data_tmpdir',
+                         'config_stub', 'key_config_stub',
+                         'qapp')
 class TestEdit:
 
     """Tests for :config-edit."""
-
-    pytestmark = pytest.mark.usefixtures('config_tmpdir', 'data_tmpdir',
-                                         'config_stub', 'key_config_stub',
-                                         'qapp')
 
     def test_no_source(self, commands, mocker):
         mock = mocker.patch('qutebrowser.config.configcommands.editor.'

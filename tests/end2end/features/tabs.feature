@@ -1,5 +1,3 @@
-# vim: ft=cucumber fileencoding=utf-8 sts=4 sw=4 et:
-
 Feature: Tab management
     Tests for various :tab-* commands.
 
@@ -781,8 +779,9 @@ Feature: Tab management
     # https://github.com/qutebrowser/qutebrowser/issues/2289
 
     @qtwebkit_skip
+    @windows_skip
     Scenario: Cloning a tab with a special URL
-        When I open chrome://gpu
+        When I open chrome://sandbox/
         And I run :tab-clone
         Then no crash should happen
 

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -42,6 +40,7 @@ def wrap(ini, sub, string):
     return textwrap.wrap(string, width=80, initial_indent=ini, subsequent_indent=sub)
 
 
+# pylint: disable-next=missing-timeout
 response = requests.get('https://raw.githubusercontent.com/Kikobeats/top-user-agents/master/index.json')
 
 if response.status_code != 200:

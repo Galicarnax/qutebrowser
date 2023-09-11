@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -20,24 +18,27 @@
 """Base class for a wrapper over QWebView/QWebEngineView."""
 
 import enum
+import pathlib
 import itertools
 import functools
 import dataclasses
 from typing import (cast, TYPE_CHECKING, Any, Callable, Iterable, List, Optional,
                     Sequence, Set, Type, Union, Tuple)
 
-from PyQt5.QtCore import (pyqtSignal, pyqtSlot, QUrl, QObject, QSizeF, Qt,
+from qutebrowser.qt import machinery
+from qutebrowser.qt.core import (pyqtSignal, pyqtSlot, QUrl, QObject, QSizeF, Qt,
                           QEvent, QPoint, QRect)
-from PyQt5.QtGui import QKeyEvent, QIcon, QPixmap
-from PyQt5.QtWidgets import QWidget, QApplication, QDialog
-from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
-from PyQt5.QtNetwork import QNetworkAccessManager
+from qutebrowser.qt.gui import QKeyEvent, QIcon, QPixmap
+from qutebrowser.qt.widgets import QApplication, QWidget
+from qutebrowser.qt.printsupport import QPrintDialog, QPrinter
+from qutebrowser.qt.network import QNetworkAccessManager
 
 if TYPE_CHECKING:
-    from PyQt5.QtWebKit import QWebHistory, QWebHistoryItem
-    from PyQt5.QtWebKitWidgets import QWebPage, QWebView
-    from PyQt5.QtWebEngineWidgets import (
-        QWebEngineHistory, QWebEngineHistoryItem, QWebEnginePage, QWebEngineView)
+    from qutebrowser.qt.webkit import QWebHistory, QWebHistoryItem
+    from qutebrowser.qt.webkitwidgets import QWebPage, QWebView
+    from qutebrowser.qt.webenginecore import (
+        QWebEngineHistory, QWebEngineHistoryItem, QWebEnginePage)
+    from qutebrowser.qt.webenginewidgets import QWebEngineView
 
 from qutebrowser.keyinput import modeman
 from qutebrowser.config import config, websettings
@@ -153,7 +154,6 @@ class AbstractAction:
 
     """Attribute ``action`` of AbstractTab for Qt WebActions."""
 
-    action_class: Type[Union['QWebPage', 'QWebEnginePage']]
     action_base: Type[Union['QWebPage.WebAction', 'QWebEnginePage.WebAction']]
 
     def __init__(self, tab: 'AbstractTab') -> None:
@@ -170,10 +170,10 @@ class AbstractAction:
 
     def run_string(self, name: str) -> None:
         """Run a webaction based on its name."""
-        member = getattr(self.action_class, name, None)
-        if not isinstance(member, self.action_base):
-            raise WebTabError("{} is not a valid web action!".format(name))
-        assert member is not None  # for mypy
+        try:
+            member = getattr(self.action_base, name)
+        except AttributeError:
+            raise WebTabError(f"{name} is not a valid web action!")
         self._widget.triggerPageAction(member)
 
     def show_source(self, pygments: bool = False) -> None:
@@ -226,13 +226,37 @@ class AbstractAction:
         self._tab.dump_async(show_source_cb)
 
 
-class AbstractPrinting:
+class AbstractPrinting(QObject):
 
     """Attribute ``printing`` of AbstractTab for printing the page."""
 
-    def __init__(self, tab: 'AbstractTab') -> None:
+    printing_finished = pyqtSignal(bool)
+    pdf_printing_finished = pyqtSignal(str, bool)  # filename, ok
+
+    def __init__(self, tab: 'AbstractTab', parent: QWidget = None) -> None:
+        super().__init__(parent)
         self._widget = cast(_WidgetType, None)
         self._tab = tab
+        self._dialog: Optional[QPrintDialog] = None
+        self.printing_finished.connect(self._on_printing_finished)
+        self.pdf_printing_finished.connect(self._on_pdf_printing_finished)
+
+    @pyqtSlot(bool)
+    def _on_printing_finished(self, ok: bool) -> None:
+        # Only reporting error here, as the user has feedback from the dialog
+        # (and probably their printer) already.
+        if not ok:
+            message.error("Printing failed!")
+        if self._dialog is not None:
+            self._dialog.deleteLater()
+            self._dialog = None
+
+    @pyqtSlot(str, bool)
+    def _on_pdf_printing_finished(self, path: str, ok: bool) -> None:
+        if ok:
+            message.info(f"Printed to {path}")
+        else:
+            message.error(f"Printing to {path} failed!")
 
     def check_pdf_support(self) -> None:
         """Check whether writing to PDFs is supported.
@@ -250,41 +274,23 @@ class AbstractPrinting:
         """
         raise NotImplementedError
 
-    def to_pdf(self, filename: str) -> bool:
+    def to_pdf(self, path: pathlib.Path) -> None:
         """Print the tab to a PDF with the given filename."""
         raise NotImplementedError
 
-    def to_printer(self, printer: QPrinter,
-                   callback: Callable[[bool], None] = None) -> None:
+    def to_printer(self, printer: QPrinter) -> None:
         """Print the tab.
 
         Args:
             printer: The QPrinter to print to.
-            callback: Called with a boolean
-                      (True if printing succeeded, False otherwise)
         """
         raise NotImplementedError
 
     def show_dialog(self) -> None:
         """Print with a QPrintDialog."""
-        def print_callback(ok: bool) -> None:
-            """Called when printing finished."""
-            if not ok:
-                message.error("Printing failed!")
-            diag.deleteLater()
-
-        def do_print() -> None:
-            """Called when the dialog was closed."""
-            self.to_printer(diag.printer(), print_callback)
-
-        diag = QPrintDialog(self._tab)
-        if utils.is_mac:
-            # For some reason we get a segfault when using open() on macOS
-            ret = diag.exec()
-            if ret == QDialog.Accepted:
-                do_print()
-        else:
-            diag.open(do_print)
+        self._dialog = dialog = QPrintDialog(self._tab)
+        self._dialog.open(lambda: self.to_printer(dialog.printer()))
+        # Gets cleaned up in on_printing_finished
 
 
 @dataclasses.dataclass
@@ -490,7 +496,7 @@ class AbstractZoom(QObject):
             raise ValueError("Can't zoom to factor {}!".format(factor))
 
         default_zoom_factor = float(config.val.zoom.default) / 100
-        self._default_zoom_changed = (factor != default_zoom_factor)
+        self._default_zoom_changed = factor != default_zoom_factor
 
         self._zoom_factor = factor
         self._set_factor_internal(factor)
@@ -603,9 +609,9 @@ class AbstractCaret(QObject):
     def _follow_enter(self, tab: bool) -> None:
         """Follow a link by faking an enter press."""
         if tab:
-            self._tab.fake_key_press(Qt.Key_Enter, modifier=Qt.ControlModifier)
+            self._tab.fake_key_press(Qt.Key.Key_Enter, modifier=Qt.KeyboardModifier.ControlModifier)
         else:
-            self._tab.fake_key_press(Qt.Key_Enter)
+            self._tab.fake_key_press(Qt.Key.Key_Enter)
 
     def follow_selected(self, *, tab: bool = False) -> None:
         raise NotImplementedError
@@ -1062,8 +1068,11 @@ class AbstractTab(QWidget):
     def _set_widget(self, widget: Union["QWebView", "QWebEngineView"]) -> None:
         # pylint: disable=protected-access
         self._widget = widget
+        # FIXME:v4 ignore needed for QtWebKit
         self.data.splitter = miscwidgets.InspectorSplitter(
-            win_id=self.win_id, main_webview=widget)
+            win_id=self.win_id,
+            main_webview=widget,  # type: ignore[arg-type,unused-ignore]
+        )
         self._layout.wrap(self, self.data.splitter)
         self.history._history = widget.history()
         self.history.private_api._history = widget.history()
@@ -1170,7 +1179,7 @@ class AbstractTab(QWidget):
     @pyqtSlot(bool)
     def _on_load_finished(self, ok: bool) -> None:
         assert self._widget is not None
-        if sip.isdeleted(self._widget):
+        if self.is_deleted():
             # https://github.com/qutebrowser/qutebrowser/issues/3498
             return
 
@@ -1238,10 +1247,10 @@ class AbstractTab(QWidget):
 
     def fake_key_press(self,
                        key: Qt.Key,
-                       modifier: Qt.KeyboardModifier = Qt.NoModifier) -> None:
+                       modifier: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> None:
         """Send a fake key event to this tab."""
-        press_evt = QKeyEvent(QEvent.KeyPress, key, modifier, 0, 0, 0)
-        release_evt = QKeyEvent(QEvent.KeyRelease, key, modifier,
+        press_evt = QKeyEvent(QEvent.Type.KeyPress, key, modifier, 0, 0, 0)
+        release_evt = QKeyEvent(QEvent.Type.KeyRelease, key, modifier,
                                 0, 0, 0)
         self.send_event(press_evt)
         self.send_event(release_evt)
@@ -1305,18 +1314,22 @@ class AbstractTab(QWidget):
             pic = self._widget.grab()
         else:
             qtutils.ensure_valid(rect)
-            pic = self._widget.grab(rect)
+            # FIXME:v4 ignore needed for QtWebKit
+            pic = self._widget.grab(rect)  # type: ignore[arg-type,unused-ignore]
 
         if pic.isNull():
             return None
+
+        if machinery.IS_QT6:
+            # FIXME:v4 cast needed for QtWebKit
+            pic = cast(QPixmap, pic)
 
         return pic
 
     def __repr__(self) -> str:
         try:
             qurl = self.url()
-            url = qurl.toDisplayString(
-                QUrl.EncodeUnicode)  # type: ignore[arg-type]
+            url = qurl.toDisplayString(urlutils.FormatOption.ENCODE_UNICODE)
         except (AttributeError, RuntimeError) as exc:
             url = '<{}>'.format(exc.__class__.__name__)
         else:
@@ -1324,5 +1337,11 @@ class AbstractTab(QWidget):
         return utils.get_repr(self, tab_id=self.tab_id, url=url)
 
     def is_deleted(self) -> bool:
+        """Check if the tab has been deleted."""
         assert self._widget is not None
-        return sip.isdeleted(self._widget)
+        # FIXME:v4 cast needed for QtWebKit
+        if machinery.IS_QT6:
+            widget = cast(QWidget, self._widget)
+        else:
+            widget = self._widget
+        return sip.isdeleted(widget)

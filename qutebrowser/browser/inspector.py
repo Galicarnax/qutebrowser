@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2015-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -24,9 +22,9 @@ import binascii
 import enum
 from typing import cast, Optional, Any
 
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject, QEvent
-from PyQt5.QtGui import QCloseEvent
+from qutebrowser.qt.widgets import QWidget
+from qutebrowser.qt.core import pyqtSignal, pyqtSlot, QObject, QEvent
+from qutebrowser.qt.gui import QCloseEvent
 
 from qutebrowser.browser import eventfilter
 from qutebrowser.config import configfiles, config
@@ -74,7 +72,7 @@ class _EventFilter(QObject):
 
     def eventFilter(self, _obj: QObject, event: QEvent) -> bool:
         """Translate mouse presses to a clicked signal."""
-        if event.type() == QEvent.MouseButtonPress:
+        if event.type() == QEvent.Type.MouseButtonPress:
             self.clicked.emit()
         return False
 

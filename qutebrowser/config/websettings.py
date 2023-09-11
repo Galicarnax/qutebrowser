@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -25,8 +23,8 @@ import functools
 import dataclasses
 from typing import Any, Callable, Dict, Optional, Union
 
-from PyQt5.QtCore import QUrl, pyqtSlot, qVersion
-from PyQt5.QtGui import QFont
+from qutebrowser.qt.core import QUrl, pyqtSlot, qVersion
+from qutebrowser.qt.gui import QFont
 
 import qutebrowser
 from qutebrowser.config import config
@@ -203,7 +201,7 @@ class AbstractSettings:
 
 
 @debugcachestats.register(name='user agent cache')
-@functools.lru_cache()
+@functools.lru_cache
 def _format_user_agent(template: str, backend: usertypes.Backend) -> str:
     if backend == usertypes.Backend.QtWebEngine:
         from qutebrowser.browser.webengine import webenginesettings
@@ -261,7 +259,7 @@ def clear_private_data() -> None:
     elif objects.backend == usertypes.Backend.QtWebKit:
         from qutebrowser.browser.webkit import cookies
         assert cookies.ram_cookie_jar is not None
-        cookies.ram_cookie_jar.setAllCookies([])
+        cookies.ram_cookie_jar.setAllCookies([])  # type: ignore[unreachable]
     else:
         raise utils.Unreachable(objects.backend)
 

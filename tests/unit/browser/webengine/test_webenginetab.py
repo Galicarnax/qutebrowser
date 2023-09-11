@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2018-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -23,10 +21,10 @@ import logging
 import textwrap
 
 import pytest
-QtWebEngineWidgets = pytest.importorskip("PyQt5.QtWebEngineWidgets")
-QWebEnginePage = QtWebEngineWidgets.QWebEnginePage
-QWebEngineScriptCollection = QtWebEngineWidgets.QWebEngineScriptCollection
-QWebEngineScript = QtWebEngineWidgets.QWebEngineScript
+QtWebEngineCore = pytest.importorskip("qutebrowser.qt.webenginecore")
+QWebEnginePage = QtWebEngineCore.QWebEnginePage
+QWebEngineScriptCollection = QtWebEngineCore.QWebEngineScriptCollection
+QWebEngineScript = QtWebEngineCore.QWebEngineScript
 
 from qutebrowser.browser import greasemonkey
 from qutebrowser.utils import usertypes
@@ -131,17 +129,17 @@ class TestWebengineScripts:
         scripts_helper.inject(scripts)
 
         script = scripts_helper.get_script()
-        assert script.injectionPoint() == QWebEngineScript.DocumentReady
+        assert script.injectionPoint() == QWebEngineScript.InjectionPoint.DocumentReady
 
     @pytest.mark.parametrize('run_at, expected', [
         # UserScript::DocumentElementCreation
-        ('document-start', QWebEngineScript.DocumentCreation),
+        ('document-start', QWebEngineScript.InjectionPoint.DocumentCreation),
         # UserScript::DocumentLoadFinished
-        ('document-end', QWebEngineScript.DocumentReady),
+        ('document-end', QWebEngineScript.InjectionPoint.DocumentReady),
         # UserScript::AfterLoad
-        ('document-idle', QWebEngineScript.Deferred),
+        ('document-idle', QWebEngineScript.InjectionPoint.Deferred),
         # default according to https://wiki.greasespot.net/Metadata_Block#.40run-at
-        (None, QWebEngineScript.DocumentReady),
+        (None, QWebEngineScript.InjectionPoint.DocumentReady),
     ])
     def test_greasemonkey_run_at_values(self, scripts_helper, run_at, expected):
         if run_at is None:
@@ -202,18 +200,6 @@ class TestWebengineScripts:
         source3 = textwrap.dedent(template.lstrip('\n')).format(header="// @name other")
         script3 = greasemonkey.GreasemonkeyScript.parse(source3)
         scripts_helper.inject([script3])
-
-
-def test_notification_permission_workaround():
-    """Make sure the value for QWebEnginePage::Notifications is correct."""
-    try:
-        notifications = QWebEnginePage.Notifications
-    except AttributeError:
-        pytest.skip("No Notifications member")
-
-    permissions = webenginetab._WebEnginePermissions
-    assert permissions._options[notifications] == 'content.notifications.enabled'
-    assert permissions._messages[notifications] == 'show notifications'
 
 
 class TestFindFlags:

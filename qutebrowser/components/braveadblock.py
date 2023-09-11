@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2020-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -27,7 +25,7 @@ import contextlib
 import subprocess
 from typing import Optional, IO, Iterator
 
-from PyQt5.QtCore import QUrl
+from qutebrowser.qt.core import QUrl
 
 from qutebrowser.api import (
     hook,
@@ -109,6 +107,7 @@ _RESOURCE_TYPE_STRINGS = {
     ResourceType.plugin_resource: "other",
     ResourceType.preload_main_frame: "other",
     ResourceType.preload_sub_frame: "other",
+    ResourceType.websocket: "websocket",
     ResourceType.unknown: "other",
     None: "",
 }

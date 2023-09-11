@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -25,7 +23,7 @@ import functools
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping,
                     MutableMapping, MutableSequence, Optional, Tuple, cast)
 
-from PyQt5.QtCore import pyqtSignal, QObject, QUrl
+from qutebrowser.qt.core import pyqtSignal, QObject, QUrl
 
 from qutebrowser.commands import cmdexc, parser
 from qutebrowser.config import configdata, configexc, configutils
@@ -109,7 +107,7 @@ class change_filter:  # noqa: N801,N806 pylint: disable=invalid-name
         and calls the wrapped function if we are.
 
         We assume the function passed doesn't take any parameters. However, it
-        could take a "self" argument, so we can't cleary express this in the
+        could take a "self" argument, so we can't clearly express this in the
         type above.
 
         Args:
@@ -188,7 +186,7 @@ class KeyConfig:
     def get_reverse_bindings_for(self, mode: str) -> '_ReverseBindings':
         """Get a dict of commands to a list of bindings for the mode.
 
-        This is intented for user-facing display of keybindings.
+        This is intended for user-facing display of keybindings.
         As such, bindings for 'set-cmd-text [flags] :<cmd> ...' are translated
         to '<cmd> ...', as from the user's perspective these keys behave like
         bindings for '<cmd>' (that allow for further input before running).
@@ -560,15 +558,18 @@ class Config(QObject):
                 log.config.debug("{} was mutated, updating".format(name))
                 self.set_obj(name, new_value, save_yaml=save_yaml)
 
-    def dump_userconfig(self) -> str:
+    def dump_userconfig(self, *, include_hidden: bool = False) -> str:
         """Get the part of the config which was changed by the user.
+
+        Args:
+            include_hidden: Include default scoped configs.
 
         Return:
             The changed config part as string.
         """
         lines: List[str] = []
         for values in sorted(self, key=lambda v: v.opt.name):
-            lines += values.dump()
+            lines += values.dump(include_hidden=include_hidden)
 
         if not lines:
             return '<Default configuration>'

@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -26,7 +24,7 @@ import time
 
 import pytest
 import pytest_bdd as bdd
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject, QFileSystemWatcher
+from qutebrowser.qt.core import pyqtSignal, pyqtSlot, QObject, QFileSystemWatcher
 bdd.scenarios('editor.feature')
 
 from qutebrowser.utils import utils

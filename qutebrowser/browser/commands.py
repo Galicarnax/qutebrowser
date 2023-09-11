@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -24,8 +22,8 @@ import shlex
 import functools
 from typing import cast, Callable, Dict, Union, Optional
 
-from PyQt5.QtWidgets import QApplication, QTabBar
-from PyQt5.QtCore import Qt, QUrl, QEvent, QUrlQuery
+from qutebrowser.qt.widgets import QApplication, QTabBar
+from qutebrowser.qt.core import Qt, QUrl, QEvent, QUrlQuery
 
 from qutebrowser.commands import userscripts, runners
 from qutebrowser.api import cmdutils
@@ -70,9 +68,7 @@ class CommandDispatcher:
             raise cmdutils.CommandError("Private windows are unavailable with "
                                         "the single-process process model.")
 
-        new_window = mainwindow.MainWindow(private=private)
-        new_window.show()
-        return new_window.tabbed_browser
+        return mainwindow.MainWindow(private=private).tabbed_browser
 
     def _count(self) -> int:
         """Convenience method to get the widget count."""
@@ -109,8 +105,15 @@ class CommandDispatcher:
             raise cmdutils.CommandError("No WebView available yet!")
         return widget
 
-    def _open(self, url, tab=False, background=False, window=False,
-              related=False, private=None):
+    def _open(
+        self,
+        url: QUrl,
+        tab: bool = False,
+        background: bool = False,
+        window: bool = False,
+        related: bool = False,
+        private: Optional[bool] = None,
+    ) -> None:
         """Helper function to open a page.
 
         Args:
@@ -123,13 +126,15 @@ class CommandDispatcher:
         """
         urlutils.raise_cmdexc_if_invalid(url)
         tabbed_browser = self._tabbed_browser
-        cmdutils.check_exclusive((tab, background, window, private), 'tbwp')
+        cmdutils.check_exclusive((tab, background, window, private or False), 'tbwp')
         if window and private is None:
             private = self._tabbed_browser.is_private
 
         if window or private:
+            assert isinstance(private, bool)
             tabbed_browser = self._new_tabbed_browser(private)
             tabbed_browser.tabopen(url)
+            tabbed_browser.window().show()
         elif tab:
             tabbed_browser.tabopen(url, background=False, related=related)
         elif background:
@@ -192,21 +197,21 @@ class CommandDispatcher:
                       what's configured in 'tabs.select_on_remove'.
 
         Return:
-            QTabBar.SelectLeftTab, QTabBar.SelectRightTab, or None if no change
+            QTabBar.SelectionBehavior.SelectLeftTab, QTabBar.SelectionBehavior.SelectRightTab, or None if no change
             should be made.
         """
         cmdutils.check_exclusive((prev, next_, opposite), 'pno')
         if prev:
-            return QTabBar.SelectLeftTab
+            return QTabBar.SelectionBehavior.SelectLeftTab
         elif next_:
-            return QTabBar.SelectRightTab
+            return QTabBar.SelectionBehavior.SelectRightTab
         elif opposite:
             conf_selection = config.val.tabs.select_on_remove
-            if conf_selection == QTabBar.SelectLeftTab:
-                return QTabBar.SelectRightTab
-            elif conf_selection == QTabBar.SelectRightTab:
-                return QTabBar.SelectLeftTab
-            elif conf_selection == QTabBar.SelectPreviousTab:
+            if conf_selection == QTabBar.SelectionBehavior.SelectLeftTab:
+                return QTabBar.SelectionBehavior.SelectRightTab
+            elif conf_selection == QTabBar.SelectionBehavior.SelectRightTab:
+                return QTabBar.SelectionBehavior.SelectLeftTab
+            elif conf_selection == QTabBar.SelectionBehavior.SelectPreviousTab:
                 raise cmdutils.CommandError(
                     "-o is not supported with 'tabs.select_on_remove' set to "
                     "'last-used'!")
@@ -403,14 +408,17 @@ class CommandDispatcher:
         except browsertab.WebTabError as e:
             raise cmdutils.CommandError(e)
 
-        # The new tab could be in a new tabbed_browser (e.g. because of
-        # tabs.tabs_are_windows being set)
         if window or private:
             new_tabbed_browser = self._new_tabbed_browser(
                 private=self._tabbed_browser.is_private or private)
         else:
             new_tabbed_browser = self._tabbed_browser
+
         newtab = new_tabbed_browser.tabopen(background=bg)
+        new_tabbed_browser.window().show()
+
+        # The new tab could be in a new tabbed_browser (e.g. because of
+        # tabs.tabs_are_windows being set)
         new_tabbed_browser = objreg.get('tabbed-browser', scope='window',
                                         window=newtab.win_id)
         idx = new_tabbed_browser.widget.indexOf(newtab)
@@ -498,6 +506,8 @@ class CommandDispatcher:
                     "The window with id {} is not private".format(win_id))
 
         tabbed_browser.tabopen(self._current_url())
+        tabbed_browser.window().show()
+
         if not keep:
             self._tabbed_browser.close_tab(self._current_widget(),
                                            add_undo=False,
@@ -706,9 +716,10 @@ class CommandDispatcher:
         assert what in ['url', 'pretty-url'], what
 
         if what == 'pretty-url':
-            flags = QUrl.RemovePassword | QUrl.DecodeReserved
+            flags = urlutils.FormatOption.DECODE_RESERVED
         else:
-            flags = QUrl.RemovePassword | QUrl.FullyEncoded
+            flags = urlutils.FormatOption.ENCODED
+        flags |= urlutils.FormatOption.REMOVE_PASSWORD
 
         url = QUrl(self._current_url())
         url_query = QUrlQuery()
@@ -720,7 +731,7 @@ class CommandDispatcher:
             if key in config.val.url.yank_ignored_parameters:
                 url_query.removeQueryItem(key)
         url.setQuery(url_query)
-        return url.toString(flags)  # type: ignore[arg-type]
+        return url.toString(flags)
 
     @cmdutils.register(instance='command-dispatcher', scope='window')
     @cmdutils.argument('what', choices=['selection', 'url', 'pretty-url',
@@ -967,7 +978,7 @@ class CommandDispatcher:
                        maxsplit=0)
     @cmdutils.argument('index', completion=miscmodels.tabs)
     @cmdutils.argument('count', value=cmdutils.Value.count)
-    def tab_select(self, index=None, count=None):
+    def tab_select(self, index=None, open=False, count=None):
         """Select tab by index or url/title best match.
 
         Focuses window if necessary when index is given. If both index and
@@ -987,7 +998,15 @@ class CommandDispatcher:
         if count is not None:
             index = str(count)
 
-        tabbed_browser, tab = self._resolve_tab_index(index)
+        tabbed_browser, tab = None, None
+        try:
+            tabbed_browser, tab = self._resolve_tab_index(index)
+        except cmdutils.CommandError:
+            if open:
+                self.openurl(index, tab=True)
+                return
+            else:
+                raise
 
         window = tabbed_browser.widget.window()
         mainwindow.raise_window(window)
@@ -1191,15 +1210,16 @@ class CommandDispatcher:
             env['QUTE_TAB_INDEX'] = str(idx + 1)
             env['QUTE_TITLE'] = self._tabbed_browser.widget.page_title(idx)
 
-        # FIXME:qtwebengine: If tab is None, run_async will fail!
         tab = self._tabbed_browser.widget.currentWidget()
+        if tab is None:
+            raise cmdutils.CommandError("No current tab!")
 
         try:
             url = self._tabbed_browser.current_url()
         except qtutils.QtValueError:
             pass
         else:
-            env['QUTE_URL'] = url.toString(QUrl.FullyEncoded)
+            env['QUTE_URL'] = url.toString(QUrl.ComponentFormattingOption.FullyEncoded)
 
         try:
             runner = userscripts.run_async(
@@ -1293,9 +1313,8 @@ class CommandDispatcher:
             was_added = bookmark_manager.add(url, title, toggle=toggle)
         except urlmarks.Error as e:
             raise cmdutils.CommandError(str(e))
-        else:
-            msg = "Bookmarked {}" if was_added else "Removed bookmark {}"
-            message.info(msg.format(url.toDisplayString()))
+        msg = "Bookmarked {}" if was_added else "Removed bookmark {}"
+        message.info(msg.format(url.toDisplayString()))
 
     @cmdutils.register(instance='command-dispatcher', scope='window',
                        maxsplit=0)
@@ -1330,8 +1349,8 @@ class CommandDispatcher:
                  current page's url.
         """
         if url is None:
-            url = self._current_url().toString(QUrl.RemovePassword |
-                                               QUrl.FullyEncoded)
+            url = self._current_url().toString(QUrl.UrlFormattingOption.RemovePassword |
+                                               QUrl.ComponentFormattingOption.FullyEncoded)
         try:
             objreg.get('bookmark-manager').delete(url)
         except KeyError:
@@ -1774,8 +1793,8 @@ class CommandDispatcher:
             raise cmdutils.CommandError(str(e))
 
         for keyinfo in sequence:
-            press_event = keyinfo.to_event(QEvent.KeyPress)
-            release_event = keyinfo.to_event(QEvent.KeyRelease)
+            press_event = keyinfo.to_event(QEvent.Type.KeyPress)
+            release_event = keyinfo.to_event(QEvent.Type.KeyRelease)
 
             if global_:
                 window = QApplication.focusWindow()
@@ -1882,9 +1901,9 @@ class CommandDispatcher:
         if not window.isFullScreen():
             window.state_before_fullscreen = window.windowState()
         if enter:
-            window.setWindowState(window.windowState() | Qt.WindowFullScreen)
+            window.setWindowState(window.windowState() | Qt.WindowState.WindowFullScreen)
         else:
-            window.setWindowState(window.windowState() ^ Qt.WindowFullScreen)
+            window.setWindowState(window.windowState() ^ Qt.WindowState.WindowFullScreen)
 
         log.misc.debug('state before fullscreen: {}'.format(
             debug.qflags_key(Qt, window.state_before_fullscreen)))

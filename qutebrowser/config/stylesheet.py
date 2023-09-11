@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2019-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -22,8 +20,8 @@
 import functools
 from typing import Optional, FrozenSet
 
-from PyQt5.QtCore import pyqtSlot, QObject
-from PyQt5.QtWidgets import QWidget
+from qutebrowser.qt.core import pyqtSlot, QObject
+from qutebrowser.qt.widgets import QWidget
 
 from qutebrowser.config import config
 from qutebrowser.misc import debugcachestats
@@ -48,7 +46,7 @@ def set_register(obj: QWidget,
 
 
 @debugcachestats.register()
-@functools.lru_cache()
+@functools.lru_cache
 def _render_stylesheet(stylesheet: str) -> str:
     """Render the given stylesheet jinja template."""
     with jinja.environment.no_autoescape():

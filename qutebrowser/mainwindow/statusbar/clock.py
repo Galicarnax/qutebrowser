@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -20,7 +18,7 @@
 """Clock displayed in the statusbar."""
 from datetime import datetime
 
-from PyQt5.QtCore import Qt, QTimer
+from qutebrowser.qt.core import Qt, QTimer
 
 from qutebrowser.mainwindow.statusbar import textbase
 
@@ -32,7 +30,7 @@ class Clock(textbase.TextBase):
     UPDATE_DELAY = 500  # ms
 
     def __init__(self, parent=None):
-        super().__init__(parent, elidemode=Qt.ElideNone)
+        super().__init__(parent, elidemode=Qt.TextElideMode.ElideNone)
         self.format = ""
 
         self.timer = QTimer(self)

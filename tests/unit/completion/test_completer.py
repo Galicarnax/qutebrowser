@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Ryan Roden-Corrent (rcorre) <ryan@rcorre.net>
 #
 # This file is part of qutebrowser.
@@ -22,7 +20,7 @@
 import unittest.mock
 
 import pytest
-from PyQt5.QtGui import QStandardItemModel
+from qutebrowser.qt.gui import QStandardItemModel
 
 from qutebrowser.completion import completer, completionwidget
 from qutebrowser.commands import command
@@ -196,7 +194,7 @@ def _set_cmd_prompt(cmd, txt):
                  marks=pytest.mark.xfail(reason='issue #74')),
     (':set -t -p |', 'section', '', []),
     (':open -- |', None, '', []),
-    (':gibberish nonesense |', None, '', []),
+    (':gibberish nonsense |', None, '', []),
     ('/:help|', None, '', []),
     ('::bind|', 'command', ':bind', []),
     (':-w open |', None, '', []),

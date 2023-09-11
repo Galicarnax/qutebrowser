@@ -1,5 +1,3 @@
-# vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
-
 # Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
 # This file is part of qutebrowser.
@@ -23,7 +21,6 @@ This script gets called as a QProcess from end2end/conftest.py.
 """
 
 import sys
-import logging
 
 import flask
 
@@ -44,6 +41,14 @@ def send_data(path):
     return webserver_sub.send_data(path)
 
 
+@app.route('/redirect-http/<path:path>')
+def redirect_http(path):
+    """Redirect to the given (plaintext) HTTP port on localhost."""
+    host, _orig_port = flask.request.server
+    port = flask.request.args["port"]
+    return flask.redirect(f"http://{host}:{port}/{path}")
+
+
 @app.route('/favicon.ico')
 def favicon():
     return webserver_sub.favicon()
@@ -52,12 +57,6 @@ def favicon():
 @app.after_request
 def log_request(response):
     return webserver_sub.log_request(response)
-
-
-@app.before_first_request
-def turn_off_logging():
-    # Turn off werkzeug logging after the startup message has been printed.
-    logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 
 def main():

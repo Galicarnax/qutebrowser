@@ -337,7 +337,12 @@ Remove a key from a dict.
 
 [[config-diff]]
 === config-diff
+Syntax: +:config-diff [*--include-hidden*]+
+
 Show all customized options.
+
+==== optional arguments
+* +*-i*+, +*--include-hidden*+: Also include internal qutebrowser settings.
 
 [[config-edit]]
 === config-edit
@@ -821,7 +826,7 @@ Show an error message in the statusbar.
 * +'text'+: The text to show.
 
 ==== optional arguments
-* +*-r*+, +*--rich*+: Render the given text as https://doc.qt.io/qt-5/richtext-html-subset.html[Qt Rich Text].
+* +*-r*+, +*--rich*+: Render the given text as https://doc.qt.io/qt-6/richtext-html-subset.html[Qt Rich Text].
 
 
 [[message-info]]
@@ -834,7 +839,7 @@ Show an info message in the statusbar.
 * +'text'+: The text to show.
 
 ==== optional arguments
-* +*-r*+, +*--rich*+: Render the given text as https://doc.qt.io/qt-5/richtext-html-subset.html[Qt Rich Text].
+* +*-r*+, +*--rich*+: Render the given text as https://doc.qt.io/qt-6/richtext-html-subset.html[Qt Rich Text].
 
 
 ==== count
@@ -850,7 +855,7 @@ Show a warning message in the statusbar.
 * +'text'+: The text to show.
 
 ==== optional arguments
-* +*-r*+, +*--rich*+: Render the given text as https://doc.qt.io/qt-5/richtext-html-subset.html[Qt Rich Text].
+* +*-r*+, +*--rich*+: Render the given text as https://doc.qt.io/qt-6/richtext-html-subset.html[Qt Rich Text].
 
 
 [[messages]]
@@ -1506,7 +1511,7 @@ How many tabs to switch back.
 
 [[tab-select]]
 === tab-select
-Syntax: +:tab-select ['index']+
+Syntax: +:tab-select [*--open*] ['index']+
 
 Select tab by index or url/title best match.
 
@@ -1515,6 +1520,8 @@ Focuses window if necessary when index is given. If both index and count are giv
 ==== positional arguments
 * +'index'+: The [win_id/]index of the tab to focus. Or a substring in which case the closest match will be focused.
 
+==== optional arguments
+* +*-o*+, +*--open*+: If index is a substring and it didn't match any tab, open it in a new tab
 
 ==== count
 The tab index to focus, starting with 1.
@@ -2176,7 +2183,7 @@ Syntax: +:debug-webaction 'action'+
 
 Execute a webaction.
 
-Available actions: https://doc.qt.io/archives/qt-5.5/qwebpage.html#WebAction-enum (WebKit) https://doc.qt.io/qt-5/qwebenginepage.html#WebAction-enum (WebEngine)
+Available actions: https://doc.qt.io/archives/qt-5.5/qwebpage.html#WebAction-enum (WebKit) https://doc.qt.io/qt-6/qwebenginepage.html#WebAction-enum (WebEngine)
 
 ==== positional arguments
 * +'action'+: The action to execute, e.g. MoveToNextChar.
