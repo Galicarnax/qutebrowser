@@ -217,7 +217,7 @@ class MainWindow(QWidget):
             parent: The parent the window should get.
         """
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        # self.setAttribute(Qt.WA_TranslucentBackground)
         # Late import to avoid a circular dependency
         # - browsertab -> hints -> webelem -> mainwindow -> bar -> browsertab
         from qutebrowser.mainwindow import tabbedbrowser
@@ -287,7 +287,7 @@ class MainWindow(QWidget):
         self._messageview = messageview.MessageView(parent=self)
         self._add_overlay(self._messageview, self._messageview.update_geometry)
 
-        self._xkb_switch = xkbswitch.XkbSwitchPlugin(win_id=self.win_id, parent=self)
+        # self._xkb_switch = xkbswitch.XkbSwitchPlugin(win_id=self.win_id, parent=self)
 
         self._init_geometry(geometry)
         self._connect_signals()
@@ -532,8 +532,8 @@ class MainWindow(QWidget):
         mode_manager.left.connect(message.global_bridge.mode_left)
 
         # xkbswitch
-        mode_manager.entered.connect(self._xkb_switch.on_mode_entered)
-        mode_manager.left.connect(self._xkb_switch.on_mode_left)
+        # mode_manager.entered.connect(self._xkb_switch.on_mode_entered)
+        # mode_manager.left.connect(self._xkb_switch.on_mode_left)
 
         # commands
         mode_manager.keystring_updated.connect(
