@@ -1,22 +1,11 @@
-# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# SPDX-FileCopyrightText: Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
-# This file is part of qutebrowser.
-#
-# qutebrowser is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# qutebrowser is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """Test starting qutebrowser with special arguments/environments."""
 
+import os
+import signal
 import configparser
 import subprocess
 import sys
@@ -25,6 +14,7 @@ import importlib
 import re
 import json
 import platform
+from contextlib import nullcontext as does_not_raise
 
 import pytest
 from qutebrowser.qt.core import QProcess, QPoint
@@ -916,3 +906,38 @@ def test_sandboxing(
 
     status = dict(line.split("\t") for line in lines)
     assert status == expected_status
+
+
+@pytest.mark.not_frozen
+def test_logfilter_arg_does_not_crash(request, quteproc_new):
+    args = ['--temp-basedir', '--debug', '--logfilter', 'commands, init, ipc, webview']
+
+    with does_not_raise():
+        quteproc_new.start(args=args + _base_args(request.config))
+
+    # Waiting for quit to make sure no other warning is emitted
+    quteproc_new.send_cmd(':quit')
+    quteproc_new.wait_for_quit()
+
+
+def test_restart(request, quteproc_new):
+    args = _base_args(request.config) + ['--temp-basedir']
+    quteproc_new.start(args)
+    quteproc_new.send_cmd(':restart')
+
+    prefix = "New process PID: "
+    line = quteproc_new.wait_for(message=f"{prefix}*")
+    quteproc_new.wait_for_quit()
+
+    assert line.message.startswith(prefix)
+    pid = int(line.message[len(prefix):])
+    os.kill(pid, signal.SIGTERM)
+
+    try:
+        # If the new process hangs, this will hang too.
+        # Still better than just ignoring it, so we can fix it if something is broken.
+        os.waitpid(pid, 0)  # pid, options... positional-only :(
+    except (ChildProcessError, PermissionError):
+        # Already gone. Even if not documented, Windows seems to raise PermissionError
+        # here...
+        pass

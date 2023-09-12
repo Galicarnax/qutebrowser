@@ -1,19 +1,6 @@
-# Copyright 2014-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# SPDX-FileCopyrightText: Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
-# This file is part of qutebrowser.
-#
-# qutebrowser is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# qutebrowser is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """The main window of qutebrowser."""
 
@@ -230,7 +217,7 @@ class MainWindow(QWidget):
             parent: The parent the window should get.
         """
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        # self.setAttribute(Qt.WA_TranslucentBackground)
         # Late import to avoid a circular dependency
         # - browsertab -> hints -> webelem -> mainwindow -> bar -> browsertab
         from qutebrowser.mainwindow import tabbedbrowser
@@ -300,7 +287,7 @@ class MainWindow(QWidget):
         self._messageview = messageview.MessageView(parent=self)
         self._add_overlay(self._messageview, self._messageview.update_geometry)
 
-        self._xkb_switch = xkbswitch.XkbSwitchPlugin(win_id=self.win_id, parent=self)
+        # self._xkb_switch = xkbswitch.XkbSwitchPlugin(win_id=self.win_id, parent=self)
 
         self._init_geometry(geometry)
         self._connect_signals()
@@ -545,8 +532,8 @@ class MainWindow(QWidget):
         mode_manager.left.connect(message.global_bridge.mode_left)
 
         # xkbswitch
-        mode_manager.entered.connect(self._xkb_switch.on_mode_entered)
-        mode_manager.left.connect(self._xkb_switch.on_mode_left)
+        # mode_manager.entered.connect(self._xkb_switch.on_mode_entered)
+        # mode_manager.left.connect(self._xkb_switch.on_mode_left)
 
         # commands
         mode_manager.keystring_updated.connect(

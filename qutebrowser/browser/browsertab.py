@@ -1,19 +1,6 @@
-# Copyright 2016-2021 Florian Bruhin (The Compiler) <mail@qutebrowser.org>
+# SPDX-FileCopyrightText: Florian Bruhin (The Compiler) <mail@qutebrowser.org>
 #
-# This file is part of qutebrowser.
-#
-# qutebrowser is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# qutebrowser is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with qutebrowser.  If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """Base class for a wrapper over QWebView/QWebEngineView."""
 
@@ -43,7 +30,7 @@ if TYPE_CHECKING:
 from qutebrowser.keyinput import modeman
 from qutebrowser.config import config, websettings
 from qutebrowser.utils import (utils, objreg, usertypes, log, qtutils,
-                               urlutils, message, jinja)
+                               urlutils, message, jinja, version)
 from qutebrowser.misc import miscwidgets, objects, sessions
 from qutebrowser.browser import eventfilter, inspector
 from qutebrowser.qt import sip
@@ -286,10 +273,16 @@ class AbstractPrinting(QObject):
         """
         raise NotImplementedError
 
+    def _do_print(self) -> None:
+        assert self._dialog is not None
+        printer = self._dialog.printer()
+        assert printer is not None
+        self.to_printer(printer)
+
     def show_dialog(self) -> None:
         """Print with a QPrintDialog."""
-        self._dialog = dialog = QPrintDialog(self._tab)
-        self._dialog.open(lambda: self.to_printer(dialog.printer()))
+        self._dialog = QPrintDialog(self._tab)
+        self._dialog.open(self._do_print)
         # Gets cleaned up in on_printing_finished
 
 
@@ -1155,10 +1148,11 @@ class AbstractTab(QWidget):
     ) -> None:
         """Handle common acceptNavigationRequest code."""
         url = utils.elide(navigation.url.toDisplayString(), 100)
-        log.webview.debug("navigation request: url {}, type {}, is_main_frame "
-                          "{}".format(url,
-                                      navigation.navigation_type,
-                                      navigation.is_main_frame))
+        log.webview.debug(
+            f"navigation request: url {url} (current {self.url().toDisplayString()}), "
+            f"type {navigation.navigation_type.name}, "
+            f"is_main_frame {navigation.is_main_frame}"
+        )
 
         if navigation.is_main_frame:
             self.data.last_navigation = navigation
@@ -1175,6 +1169,37 @@ class AbstractTab(QWidget):
                                   navigation.url.toDisplayString(),
                                   navigation.url.errorString()))
             navigation.accepted = False
+
+        # WORKAROUND for QtWebEngine >= 6.2 not allowing form requests from
+        # qute:// to outside domains.
+        needs_load_workarounds = (
+            objects.backend == usertypes.Backend.QtWebEngine and
+            version.qtwebengine_versions().webengine >= utils.VersionNumber(6, 2)
+        )
+        if (
+            needs_load_workarounds and
+            self.url() == QUrl("qute://start/") and
+            navigation.navigation_type == navigation.Type.form_submitted and
+            navigation.url.matches(
+                QUrl(config.val.url.searchengines['DEFAULT']),
+                urlutils.FormatOption.REMOVE_QUERY)
+        ):
+            log.webview.debug(
+                "Working around qute://start loading issue for "
+                f"{navigation.url.toDisplayString()}")
+            navigation.accepted = False
+            self.load_url(navigation.url)
+
+        if (
+            needs_load_workarounds and
+            self.url() == QUrl("qute://bookmarks/") and
+            navigation.navigation_type == navigation.Type.back_forward
+        ):
+            log.webview.debug(
+                "Working around qute://bookmarks loading issue for "
+                f"{navigation.url.toDisplayString()}")
+            navigation.accepted = False
+            self.load_url(navigation.url)
 
     @pyqtSlot(bool)
     def _on_load_finished(self, ok: bool) -> None:
