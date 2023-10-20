@@ -1,7 +1,7 @@
 # vim: ft=python fileencoding=utf-8 sts=4 sw=4 et:
 
 from ctypes import CDLL, c_char_p
-from PyQt5.QtCore import pyqtSlot, QObject
+from PyQt6.QtCore import pyqtSlot, QObject
 from qutebrowser.utils.usertypes import KeyMode
 
 
