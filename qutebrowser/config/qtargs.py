@@ -282,7 +282,7 @@ _SettingValueType = Union[
         [
             version.WebEngineVersions,
         ],
-        str,
+        Optional[str],
     ],
 ]
 _WEBENGINE_SETTINGS: Dict[str, Dict[Any, Optional[_SettingValueType]]] = {
@@ -294,6 +294,7 @@ _WEBENGINE_SETTINGS: Dict[str, Dict[Any, Optional[_SettingValueType]]] = {
     },
     'content.canvas_reading': {
         True: None,
+        # might be overridden in webenginesettings.py
         False: '--disable-reading-from-canvas',
     },
     'content.webrtc_ip_handling_policy': {
@@ -307,6 +308,11 @@ _WEBENGINE_SETTINGS: Dict[str, Dict[Any, Optional[_SettingValueType]]] = {
         'disable-non-proxied-udp':
             '--force-webrtc-ip-handling-policy='
             'disable_non_proxied_udp',
+    },
+    'content.javascript.legacy_touch_events': {
+        'always': '--touch-events=enabled',
+        'auto': '--touch-events=auto',
+        'never': '--touch-events=disabled',
     },
     'qt.chromium.process_model': {
         'process-per-site-instance': None,
@@ -336,9 +342,7 @@ _WEBENGINE_SETTINGS: Dict[str, Dict[Any, Optional[_SettingValueType]]] = {
     'qt.workarounds.disable_accelerated_2d_canvas': {
         'always': '--disable-accelerated-2d-canvas',
         'never': None,
-        'auto': lambda _versions: 'always'
-        if machinery.IS_QT6
-        else 'never',
+        'auto': lambda _versions: '--disable-accelerated-2d-canvas' if machinery.IS_QT6 else None,
     },
 }
 
@@ -347,11 +351,7 @@ def _qtwebengine_settings_args(versions: version.WebEngineVersions) -> Iterator[
     for setting, args in sorted(_WEBENGINE_SETTINGS.items()):
         arg = args[config.instance.get(setting)]
         if callable(arg):
-            new_value = arg(versions)
-            assert (
-                new_value in args
-            ), f"qt.settings feature detection returned an unrecognized value: {new_value} for {setting}"
-            result = args[new_value]
+            result = arg(versions)
             if result is not None:
                 assert isinstance(
                     result, str

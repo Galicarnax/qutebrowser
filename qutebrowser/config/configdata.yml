@@ -454,11 +454,14 @@ content.canvas_reading:
   default: true
   type: Bool
   backend: QtWebEngine
-  restart: true
+  supports_pattern: true
   desc: >-
     Allow websites to read canvas elements.
 
     Note this is needed for some websites to work properly.
+
+    On QtWebEngine < 6.6, this setting requires a restart and does not support
+    URL patterns, only the global setting is applied.
 
 # Defaults from QWebSettings::QWebSettings() in
 # qtwebkit/Source/WebKit/qt/Api/qwebsettings.cpp
@@ -1027,6 +1030,31 @@ content.javascript.prompt:
   default: true
   type: Bool
   desc: Show javascript prompts.
+
+content.javascript.legacy_touch_events:
+  type:
+    name: String
+    valid_values:
+      - always: Legacy touch events are always enabled. This might cause some
+            websites to assume a mobile device.
+      - auto: Legacy touch events are only enabled if a touch screen was
+            detected on startup.
+      - never: Legacy touch events are always disabled.
+  default: never
+  backend: QtWebEngine
+  restart: true
+  desc: >-
+    Enables the legacy touch event feature.
+
+    This affects JS APIs such as:
+
+    - ontouch* members on window, document, Element
+    - document.createTouch, document.createTouchList
+    - document.createEvent("TouchEvent")
+
+    Newer Chromium versions have those disabled by default:
+    https://bugs.chromium.org/p/chromium/issues/detail?id=392584
+    https://groups.google.com/a/chromium.org/g/blink-dev/c/KV6kqDJpYiE
 
 content.local_content_can_access_remote_urls:
   default: false
@@ -3245,22 +3273,11 @@ colors.webpage.darkmode.enabled:
 
     Example configurations from Chromium's `chrome://flags`:
 
-
     - "With simple HSL/CIELAB/RGB-based inversion": Set
-      `colors.webpage.darkmode.algorithm` accordingly.
+      `colors.webpage.darkmode.algorithm` accordingly, and
+      set `colors.webpage.darkmode.policy.images` to `never`.
 
-    - "With selective image inversion": Set
-      `colors.webpage.darkmode.policy.images` to `smart`.
-
-    - "With selective inversion of non-image elements": Set
-      `colors.webpage.darkmode.threshold.text` to 150 and
-      `colors.webpage.darkmode.threshold.background` to 205.
-
-    - "With selective inversion of everything": Combines the two variants
-      above.
-
-    - "With increased text contrast": Set
-      `colors.webpage.darkmode.increase_text_contrast` (QtWebEngine 6.3+)
+    - "With selective image inversion": qutebrowser default settings.
   restart: true
   backend: QtWebEngine
 
@@ -3309,13 +3326,11 @@ colors.webpage.darkmode.policy.images:
       - never: Never apply dark mode filter to any images.
       - smart: "Apply dark mode based on image content. Not available with Qt
         5.15.0."
+      - smart-simple: "On QtWebEngine 6.6, use a simpler algorithm for smart mode (based
+      on numbers of colors and transparency), rather than an ML-based model.
+      Same as 'smart' on older QtWebEnigne versions."
   desc: >-
       Which images to apply dark mode to.
-
-      With QtWebEngine 5.15.0, this setting can cause frequent renderer process
-      crashes due to a
-      https://codereview.qt-project.org/c/qt/qtwebengine-chromium/+/304211[bug
-      in Qt].
   restart: true
   backend: QtWebEngine
 
@@ -3335,6 +3350,9 @@ colors.webpage.darkmode.policy.page:
   backend: QtWebEngine
 
 colors.webpage.darkmode.threshold.text:
+  renamed: colors.webpage.darkmode.threshold.foreground
+
+colors.webpage.darkmode.threshold.foreground:
   default: 256
   type:
     name: Int
@@ -3363,44 +3381,9 @@ colors.webpage.darkmode.threshold.background:
       256 to never invert the color or to 0 to always invert it.
 
       Note: This behavior is the opposite of
-      `colors.webpage.darkmode.threshold.text`!
+      `colors.webpage.darkmode.threshold.foreground`!
   restart: true
   backend: QtWebEngine
-
-colors.webpage.darkmode.grayscale.all:
-  default: false
-  type: Bool
-  desc: >-
-    Render all colors as grayscale.
-
-    This only has an effect when `colors.webpage.darkmode.algorithm` is set to
-    `lightness-hsl` or `brightness-rgb`.
-  restart: true
-  backend: QtWebEngine
-
-colors.webpage.darkmode.grayscale.images:
-  default: 0.0
-  type:
-    name: Float
-    minval: 0.0
-    maxval: 1.0
-  desc: >-
-    Desaturation factor for images in dark mode.
-
-    If set to 0, images are left as-is. If set to 1, images are completely
-    grayscale. Values between 0 and 1 desaturate the colors accordingly.
-  restart: true
-  backend: QtWebEngine
-
-colors.webpage.darkmode.increase_text_contrast:
-  default: false
-  type: Bool
-  desc: >-
-    Increase text contrast by drawing an outline of the uninverted color.
-  restart: true
-  backend:
-    QtWebEngine: Qt 6.3
-    QtWebKit: false
 
 # emacs: '
 
