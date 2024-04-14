@@ -31,6 +31,16 @@ Changed
 - A few more completions will now match search terms in any order:
   `:quickmark-*`, `:bookmark-*`, `:tab-take` and `:tab-select` (for the quick
   and bookmark categories). (#7955)
+- Elements with an ARIA `role="switch"` now get hints (toggle switches like
+  e.g. on cookie banners).
+- The `tor_identity` userscript now validates that the -c|--control-port
+  argument value is an int. (#8162)
+
+Fixed
+~~~~~
+
+- `input.insert_mode.auto_load` sometimes not triggering due to a race
+  condition.
 
 [[v3.1.1]]
 v3.1.1 (unreleased)
