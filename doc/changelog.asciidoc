@@ -25,13 +25,15 @@ Added
 - When qutebrowser receives a SIGHUP it will now reload any config.py file
   in use (same as the `:config-source` command does). (#8108)
 - The Chromium security patch version is now shown in the backend string in
-  --version and :version. This reflects the latest Chromium version that
+  `--version` and `:version`. This reflects the latest Chromium version that
   security fixes have been backported to the base QtWebEngine version from.
   (#7187)
 
 Changed
 ~~~~~~~
 
+- With QtWebEngine 6.7+, the `colors.webpage.darkmode.enabled` setting can now
+  be changed at runtime and supports URL patterns (#8182).
 - A few more completions will now match search terms in any order:
   `:quickmark-*`, `:bookmark-*`, `:tab-take` and `:tab-select` (for the quick
   and bookmark categories). (#7955)
@@ -47,6 +49,10 @@ Fixed
   condition.
 - Worked around qutebrowser quitting when closing a KDE file dialog due to a Qt
   bug.
+- Trying to use qutebrowser after it's been deleted/moved on disk (e.g. after a
+  Python upgrade) should now not crash anymore.
+- When the QtWebEngine resources dir couldn't be found, qutebrowser now doesn't
+  crash anymore (but QtWebEngine still might).
 
 [[v3.1.1]]
 v3.1.1 (unreleased)
@@ -3669,7 +3675,7 @@ Fixed
 - Continuing a search after clearing it now works correctly.
 - The tabbar and completion should now be more consistently and correctly
   styled with various system styles.
-- Applying styiles in `qt5ct` now shouldn't crash anymore.
+- Applying styles in `qt5ct` now shouldn't crash anymore.
 - The validation for colors in stylesheets is now less strict,
   allowing for all valid Qt values.
 - `data:` URLs now aren't added to the history anymore.
