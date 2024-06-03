@@ -486,7 +486,7 @@ def _pdfjs_version() -> str:
     else:
         pdfjs_file = pdfjs_file.decode('utf-8')
         version_re = re.compile(
-            r"^ *(PDFJS\.version|(var|const) pdfjsVersion) = '(?P<version>[^']+)';$",
+            r"""^ *(PDFJS\.version|(var|const) pdfjsVersion) = ['"](?P<version>[^'"]+)['"];$""",
             re.MULTILINE)
 
         match = version_re.search(pdfjs_file)
@@ -625,7 +625,7 @@ class WebEngineVersions:
 
         ## Qt 6.7
         utils.VersionNumber(6, 7): (_BASES[118], '122.0.6261.128'),  # 2024-03-12
-        utils.VersionNumber(6, 7, 1): (_BASES[118], '124.0.6367.78'),  # (?) 2024-04-24
+        utils.VersionNumber(6, 7, 1): (_BASES[118], '124.0.6367.202'),  # ~2024-05-09
     }
 
     def __post_init__(self) -> None:
