@@ -2,7 +2,7 @@ FROM archlinux:latest
 
 RUN pacman-key --init && pacman-key --populate
 {% if unstable %}
-RUN sed -i '/^# after the header/a[kde-unstable]\nInclude = /etc/pacman.d/mirrorlist\n\n[testing]\nInclude = /etc/pacman.d/mirrorlist\n\n[community-testing]\nInclude = /etc/pacman.d/mirrorlist' /etc/pacman.conf
+RUN sed -i '/^# after the header/a[kde-unstable]\nInclude = /etc/pacman.d/mirrorlist\n\n[core-testing]\nInclude = /etc/pacman.d/mirrorlist\n\n[extra-testing]\nInclude = /etc/pacman.d/mirrorlist' /etc/pacman.conf
 {% endif %}
 RUN pacman -Sy --noconfirm archlinux-keyring
 RUN pacman -Su --noconfirm \
@@ -22,6 +22,7 @@ RUN pacman -Su --noconfirm \
     {% else %}
       qt5-base \
       qt5-declarative \
+      openssl-1.1 \
       {% if webengine %}
         qt5-webengine \
         python-pyqtwebengine \
@@ -69,6 +70,7 @@ RUN useradd user -u 1001 && \
     chown user:users /home/user
 USER user
 WORKDIR /home/user
+RUN git config --global --add safe.directory /outside/.git
 
 CMD git clone /outside qutebrowser.git && \
     cd qutebrowser.git && \
