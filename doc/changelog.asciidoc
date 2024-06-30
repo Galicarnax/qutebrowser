@@ -19,11 +19,11 @@ breaking changes (such as renamed commands) can happen in minor releases.
 v3.3.0 (unreleased)
 -------------------
 
-Added
-~~~~~
+Removed
+~~~~~~~
 
-- There is now a separate macOS release built for Apple Silicon. A Universal
-  Binary might follow with a later release.
+- Support for macOS 11 Big Sur is dropped. Binaries are now built on macOS 12
+  Monterey and are unlikely to still run on older macOS versions.
 
 Changed
 ~~~~~~~
@@ -43,8 +43,20 @@ Fixed
   completion dialog has been resolved. (#7950)
 
 [[v3.2.1]]
-v3.2.1 (unreleased)
+v3.2.1 (2024-06-25)
 -------------------
+
+Added
+~~~~~
+
+- There is now a separate macOS release built for Apple Silicon. A Universal
+  Binary might follow with a later release.
+
+Changed
+~~~~~~~
+
+- Windows and macOS releases now bundle Qt 6.7.2, which includes security fixes
+  up to Chromium 125.0.6422.142.
 
 Fixed
 ~~~~~
