@@ -8,7 +8,8 @@ import binascii
 import base64
 import itertools
 import functools
-from typing import List, MutableSequence, Optional, Tuple, cast
+from typing import Optional, cast
+from collections.abc import MutableSequence
 
 # Galicarnax: Wayland does not support QWindow::requestActivate()
 # This means that when opening URLs from an external app/script,
@@ -124,7 +125,7 @@ def get_target_window():
         return None
 
 
-_OverlayInfoType = Tuple[QWidget, pyqtBoundSignal, bool, str]
+_OverlayInfoType = tuple[QWidget, pyqtBoundSignal, bool, str]
 
 
 class MainWindow(QWidget):
@@ -452,7 +453,7 @@ class MainWindow(QWidget):
         self._vbox.removeWidget(self.tabbed_browser.widget)
         self._vbox.removeWidget(self._downloadview)
         self._vbox.removeWidget(self.status)
-        widgets: List[QWidget] = [self.tabbed_browser.widget]
+        widgets: list[QWidget] = [self.tabbed_browser.widget]
 
         downloads_position = config.val.downloads.position
         if downloads_position == 'top':
