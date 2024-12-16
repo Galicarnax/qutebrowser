@@ -348,17 +348,23 @@ class ProfileSetter:
 
         log.config.debug("Found dicts: {}".format(filenames))
         self._profile.setSpellCheckLanguages(filenames)
-        self._profile.setSpellCheckEnabled(bool(filenames))
+
+        should_enable = bool(filenames)
+        if self._profile.isSpellCheckEnabled() != should_enable:
+            # Only setting conditionally as a WORKAROUND for a bogus Qt error message:
+            # https://bugreports.qt.io/browse/QTBUG-131969
+            self._profile.setSpellCheckEnabled(should_enable)
 
     def disable_persistent_permissions_policy(self):
         """Disable webengine's permission persistence."""
-        try:
-            # New in WebEngine 6.8.0
-            self._profile.setPersistentPermissionsPolicy(
-                QWebEngineProfile.PersistentPermissionsPolicy.AskEveryTime  # type: ignore[attr-defined]
-            )
-        except AttributeError:
-            pass
+        if machinery.IS_QT6:  # for mypy
+            try:
+                # New in WebEngine 6.8.0
+                self._profile.setPersistentPermissionsPolicy(
+                    QWebEngineProfile.PersistentPermissionsPolicy.AskEveryTime
+                )
+            except AttributeError:
+                pass
 
 
 def _update_settings(option):
@@ -487,7 +493,7 @@ def _init_site_specific_quirks():
                   "AppleWebKit/{webkit_version} (KHTML, like Gecko) "
                   "{upstream_browser_key}/{upstream_browser_version} "
                   "Safari/{webkit_version}")
-    firefox_ua = "Mozilla/5.0 ({os_info}; rv:131.0) Gecko/20100101 Firefox/131.0"
+    firefox_ua = "Mozilla/5.0 ({os_info}; rv:133.0) Gecko/20100101 Firefox/133.0"
 
     def maybe_newer_chrome_ua(at_least_version):
         """Return a new UA if our current chrome version isn't at least at_least_version."""
