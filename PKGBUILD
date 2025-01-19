@@ -4,24 +4,18 @@
 # vim: set ts=4 sw=4 et ft=sh:
 
 pkgname=qutebrowser-galicarnax
-pkgver=3.2.0.r151.ge0c3ebdd0
+pkgver=3.4.0.r149.g4d9d839c6
 pkgrel=1
 pkgdesc="A keyboard-driven, vim-like browser based on PyQt6"
 arch=("any")
 url="https://www.qutebrowser.org/"
 license=("GPL")
 depends=("python-jinja" "python-pyqt6" "python-yaml" "python-pyqt6-webengine")
-makedepends=("asciidoc" "pygmentize" "git" "python-setuptools")
+makedepends=("asciidoc" "python-setuptools")
 optdepends=("python-adblock: ABP-style adblocking"
             "pdfjs: displaying PDF in-browser"
-            "gst-libav: media playback with qt5-webkit backend"
-            "gst-plugins-base: media playback with qt5-webkit backend"
-            "gst-plugins-good: media playback with qt5-webkit backend"
-            "gst-plugins-bad: media playback with qt5-webkit backend"
-            "gst-plugins-ugly: media playback with qt5-webkit backend"
-            "python-pygments: :view-source with qt5-webkit backend"
-            "python-i3ipc: hack for activating window in Sway"
-            "qt5-webkit: alternative backend")
+            "python-pygments"
+            "python-i3ipc: hack for activating window in Sway")
 options=(!emptydirs)
 conflicts=('qutebrowser')
 provides=('qutebrowser')
