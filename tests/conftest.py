@@ -104,6 +104,10 @@ def _apply_platform_markers(config, item):
          pytest.mark.skipif,
          testutils.ON_CI,
          "Skipped on CI."),
+        ('no_offscreen',
+         pytest.mark.skipif,
+         testutils.offscreen_plugin_enabled(),
+         "Skipped with offscreen platform plugin."),
         ('unicode_locale',
          pytest.mark.skipif,
          sys.getfilesystemencoding() == 'ascii',
@@ -213,16 +217,20 @@ def pytest_ignore_collect(collection_path: pathlib.Path) -> bool:
 
 
 @pytest.fixture(scope='session')
-def qapp_args():
-    """Make QtWebEngine unit tests run on older Qt versions + newer kernels."""
+def qapp_args() -> list[str]:
+    """Work around various issues when running QtWebEngine tests."""
+    args = [sys.argv[0], "--webEngineArgs"]
     if testutils.disable_seccomp_bpf_sandbox():
-        return [sys.argv[0], testutils.DISABLE_SECCOMP_BPF_FLAG]
+        args.append(testutils.DISABLE_SECCOMP_BPF_FLAG)
+    if testutils.use_software_rendering():
+        args.append(testutils.SOFTWARE_RENDERING_FLAG)
 
     # Disabling PaintHoldingCrossOrigin makes tests needing UI interaction with
     # QtWebEngine more reliable.
     # Only needed with QtWebEngine and Qt 6.5, but Qt just ignores arguments it
     # doesn't know about anyways.
-    return [sys.argv[0], "--webEngineArgs", "--disable-features=PaintHoldingCrossOrigin"]
+    args.append("--disable-features=PaintHoldingCrossOrigin")
+    return args
 
 
 @pytest.fixture(scope='session')
@@ -313,8 +321,17 @@ def pytest_report_header(config):
 
 @pytest.fixture(scope='session', autouse=True)
 def check_display(request):
-    if utils.is_linux and not os.environ.get('DISPLAY', ''):
+    if (
+        utils.is_linux
+        and not os.environ.get("DISPLAY", "")
+        and not testutils.offscreen_plugin_enabled()
+    ):
         raise RuntimeError("No display and no Xvfb available!")
+
+
+def pytest_xvfb_disable() -> bool:
+    """Disable Xvfb if the offscreen plugin is in use."""
+    return testutils.offscreen_plugin_enabled()
 
 
 @pytest.fixture(autouse=True)

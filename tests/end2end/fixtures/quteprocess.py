@@ -241,6 +241,10 @@ def is_ignored_chromium_message(line):
         # [7072:3412:1209/220659.527:ERROR:simple_index_file.cc(322)] Failed to
         # write the temporary index file
         "Failed to write the temporary index file",
+
+        # Qt 6.9 Beta 3 on GitHub Actions
+        # [978:1041:0311/070551.759339:ERROR:bus.cc(407)]
+        "Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory",
     ]
     return any(testutils.pattern_match(pattern=pattern, value=message)
                for pattern in ignored_messages)
@@ -444,8 +448,11 @@ class QuteProc(testprocess.Process):
                 '--qt-flag', 'disable-features=PaintHoldingCrossOrigin',
                 '--qt-arg', 'geometry', '800x600+0+0']
 
-        if self.request.config.webengine and testutils.disable_seccomp_bpf_sandbox():
-            args += testutils.DISABLE_SECCOMP_BPF_ARGS
+        if self.request.config.webengine:
+            if testutils.disable_seccomp_bpf_sandbox():
+                args += testutils.DISABLE_SECCOMP_BPF_ARGS
+            if testutils.use_software_rendering():
+                args += testutils.SOFTWARE_RENDERING_ARGS
 
         args.append('about:blank')
         return args
@@ -545,6 +552,7 @@ class QuteProc(testprocess.Process):
     def before_test(self):
         """Clear settings before every test."""
         super().before_test()
+        self.send_cmd(':clear-messages')
         self.send_cmd(':config-clear')
         self._init_settings()
         self.clear_data()
