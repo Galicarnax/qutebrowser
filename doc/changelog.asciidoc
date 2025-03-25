@@ -25,6 +25,15 @@ Changed
 - The `content.headers.user_agent` setting now has a new
   `{upstream_browser_version_short}` template field, which is the
   upstream/Chromium version but shortened to only major version.
+- Changed features in userscripts:
+    * `qute-bitwarden` now passes your password to the subprocess in an
+      environment variable when unlocking your vault, instead of as a command
+      line argument. (#7781)
+- New `-D no-system-pdfjs` debug flag to ignore system-wide PDF.js installations
+  for testing.
+- Polyfill for missing `URL.parse` with PDF.js v5 and QtWebEngine < 6.9. Note
+  this is a "best effort" fix and you should be using the "older browsers"
+  ("legacy") build of PDF.js instead.
 
 Fixed
 ~~~~~
@@ -36,6 +45,11 @@ Fixed
   error is shown instead).
 - The default user agent now only contains the shortened Chromium version
   number, which fixes overzealous blocking on ScienceDirect.
+- New site-specific quirk to fix existing accounts showing as non-existent on
+  Digitec/Galaxus.
+- Resolved issues in userscripts:
+    * `qute-bitwarden` will now prompt a re-login if its cached session has
+      been invalidated since last used. (#8456)
 
 [[v3.4.0]]
 v3.4.0 (2024-12-14)
