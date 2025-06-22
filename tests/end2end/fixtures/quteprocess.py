@@ -239,7 +239,7 @@ def is_ignored_chromium_message(line):
         # Qt 6.7 on GitHub Actions
         # [3456:5752:1111/103609.929:ERROR:block_files.cc(443)] Failed to open
         # C:\Users\RUNNER~1\AppData\Local\Temp\qutebrowser-basedir-ruvn1lys\data\webengine\DawnCache\data_0
-        "Failed to open *webengine*DawnCache*data_*",
+        "Failed to open *webengine*Dawn*Cache*data_*",
 
         # Qt 6.8 on GitHub Actions
         # [7072:3412:1209/220659.527:ERROR:simple_index_file.cc(322)] Failed to
@@ -249,6 +249,10 @@ def is_ignored_chromium_message(line):
         # Qt 6.9 Beta 3 on GitHub Actions
         # [978:1041:0311/070551.759339:ERROR:bus.cc(407)]
         "Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory",
+
+        # Qt 6.9 on GitHub Actions with Windows Server 2025
+        # [4348:7828:0605/123815.402:ERROR:shared_image_manager.cc(356)]
+        "SharedImageManager::ProduceMemory: Trying to Produce a Memory representation from a non-existent mailbox.",
     ]
     return any(testutils.pattern_match(pattern=pattern, value=message)
                for pattern in ignored_messages)

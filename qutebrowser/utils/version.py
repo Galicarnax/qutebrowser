@@ -322,8 +322,8 @@ class ModuleInfo:
         except (ImportError, ValueError):
             self._installed = False
             return
-        else:
-            self._installed = True
+
+        self._installed = True
 
         for attribute_name in self._version_attributes:
             if hasattr(module, attribute_name):
@@ -331,6 +331,13 @@ class ModuleInfo:
                 assert isinstance(version, (str, float))
                 self._version = str(version)
                 break
+
+        if self._version is None:
+            try:
+                self._version = importlib.metadata.version(self.name)
+            except importlib.metadata.PackageNotFoundError:
+                log.misc.debug(f"{self.name} not found")
+                self._version = None
 
         self._initialized = True
 
@@ -372,7 +379,7 @@ class ModuleInfo:
 
         version = self.get_version()
         if version is None:
-            return f'{self.name}: yes'
+            return f'{self.name}: unknown'
 
         text = f'{self.name}: {version}'
         if self.is_outdated():
@@ -383,7 +390,7 @@ class ModuleInfo:
 def _create_module_info() -> dict[str, ModuleInfo]:
     packages = [
         ('colorama', ['VERSION', '__version__']),
-        ('jinja2', ['__version__']),
+        ('jinja2', []),
         ('pygments', ['__version__']),
         ('yaml', ['__version__']),
         ('adblock', ['__version__'], "0.3.2"),
@@ -487,7 +494,7 @@ def _pdfjs_version() -> str:
     else:
         pdfjs_file = pdfjs_file.decode('utf-8')
         version_re = re.compile(
-            r"""^ *(PDFJS\.version|(var|const) pdfjsVersion) = ['"](?P<version>[^'"]+)['"];$""",
+            r"""^ *(PDFJS\.version|(var|const|\*) pdfjsVersion) = ['"]?(?P<version>[^'"\n]+)['"]?;?$""",
             re.MULTILINE)
 
         match = version_re.search(pdfjs_file)
@@ -644,6 +651,7 @@ class WebEngineVersions:
 
         ## Qt 6.9
         utils.VersionNumber(6, 9): (_BASES[130], '133.0.6943.141'),  # 2025-02-25
+        utils.VersionNumber(6, 9, 1): (_BASES[130], '136.0.7103.114'),  # 2025-05-13
     }
 
     def __post_init__(self) -> None:
