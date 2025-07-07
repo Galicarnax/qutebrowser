@@ -3,13 +3,14 @@
 build==1.2.2.post1
 certifi==2025.6.15
 charset-normalizer==3.4.2
+check-manifest==0.50
 docutils==0.21.2
 idna==3.10
 importlib_metadata==8.7.0
 packaging==25.0
 Pygments==2.19.2
 pyproject_hooks==1.2.0
-pyroma==4.2
+pyroma==4.3.3
 requests==2.32.4
 tomli==2.2.1
 trove-classifiers==2025.5.9.12
