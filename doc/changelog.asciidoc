@@ -32,10 +32,11 @@ Changed
 - Windows releases are now built on Windows Server 2022 (previously 2019),
   which might break compatibility with older Windows releases (untested).
 - The `qutedmenu` userscript now sorts history by the last access time.
-
-[[v3.5.2]]
-v3.5.2 (unreleased)
--------------------
+- Hardware accelerated 2D canvas is now enabled by default on Qt 6.8.2+,
+  as graphic glitches with e.g. PDF.js and Google Sheets should be fixed
+  nowadays. If you still run into issues, please report them and set
+  `qt.workarounds.disable_accelerated_2d_canvas` to `always` to disable it
+  again.
 
 Fixed
 ~~~~~
@@ -49,7 +50,18 @@ Fixed
   (#8674).
 - Fixed exception when closing a qutebrowser window while a download prompt is
   still open.
-- Fixed crash with Qt 6.10 (and possibly older Qt versions) when navigating from a `qute://` page to a web page, e.g. when searching on `qute://start`
+- Fixed crash with Qt 6.10 (and possibly older Qt versions) when navigating
+  from a `qute://` page to a web page, e.g. when searching on `qute://start`
+- Hopefully proper fix for some web pages jumping to the top when the statusbar
+  is hidden. (#8223)
+- Fix for the page header being shown on YouTube after the fullscreen
+  notification was hidden (#8625).
+- Fix for videos losing keyboard focus when the fullscreen notification shows
+  (#8174).
+- On Wayland with Qt <= 6.9, `EGL_PLATFORM=wayland` is now set by qutebrowser to
+  get hardware rendering. Qt 6.10 includes an equivalent fix (#8637).
+- Added workaround for per-domain User-Agent header not being used on redirects
+  (#8679).
 
 [[v3.5.1]]
 v3.5.1 (2025-06-05)
